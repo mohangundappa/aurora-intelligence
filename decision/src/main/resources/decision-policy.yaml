@@ -6,6 +6,14 @@ default:
   reasonCodes: [NO_ELIGIBLE_POLICY]
   explanation: "No configured decision policy was eligible."
 rules:
+  - id: FAMILY_RESORT_RECOMMENDATION
+    action: RECOMMEND_FAMILY_RESORT
+    experience: FAMILY_RESORT_RECOMMENDATION
+    signal: resort-affinity
+    minimumValue: 70
+    minimumConfidence: 0.50
+    reasonCodes: [FAMILY_RESORT_EVIDENCE, RESORT_AFFINITY_ELIGIBLE]
+    explanation: "Family-party and resort browsing evidence support a family-resort recommendation."
   - id: MIAMI_GETAWAY
     action: SHOW_DESTINATION
     experience: MIAMI_GETAWAY

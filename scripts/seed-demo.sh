@@ -55,9 +55,12 @@ ingest([
     event(f"headline-{i}", name, headline, headline_anon, headline_corr, i, payload)
     for i, (name, payload) in enumerate([
         ("DESTINATION_SEARCHED", {"destination": "Miami"}),
+        ("DESTINATION_SEARCHED", {"destination": "Miami"}),
+        ("TRAVEL_PARTY_SELECTED", {"adults": 2, "children": 2}),
         ("TRAVEL_PARTY_SELECTED", {"adults": 2, "children": 2}),
         ("FILTER_APPLIED", {"filter": "pool", "value": "true"}),
         ("FILTER_APPLIED", {"filter": "resort", "value": "true"}),
+        ("FILTER_APPLIED", {"filter": "budget", "value": "true"}),
         ("PROPERTY_VIEWED", {"propertyId": "aurora-miami"}),
         ("PROPERTY_VIEWED", {"propertyId": "aurora-miami"}),
         ("PROPERTY_VIEWED", {"propertyId": "aurora-miami"}),

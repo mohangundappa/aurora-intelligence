@@ -1,86 +1,134 @@
 "use client";
-import { useState } from "react";
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import { SiteHeader } from "../components/SiteHeader";
+import { sessionId, track } from "../lib/tracker";
+
 export default function Home() {
   const [destination, setDestination] = useState("");
-  const [result, setResult] = useState("");
-  const [session] = useState(() => crypto.randomUUID());
-  const [anonymous] = useState(() => crypto.randomUUID());
-  async function search() {
-    const correlation = crypto.randomUUID();
-    const base = {
-      eventTime: new Date().toISOString(),
-      receivedTime: new Date().toISOString(),
-      schemaVersion: "1.0",
-      source: "aurora-web",
-      sessionId: session,
-      anonymousId: anonymous,
-      customerId: null,
-      correlationId: correlation,
-      consent: { analytics: true, personalization: true },
-    };
-    await fetch(`${API}/api/v1/events`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Correlation-Id": correlation,
-      },
-      body: JSON.stringify([
-        {
-          ...base,
-          eventId: crypto.randomUUID(),
-          eventName: "PAGE_VIEWED",
-          payload: { path: "/" },
-        },
-        {
-          ...base,
-          eventId: crypto.randomUUID(),
-          eventName: "DESTINATION_SEARCHED",
-          payload: { destination },
-        },
-      ]),
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [adults, setAdults] = useState("2");
+  const [children, setChildren] = useState("0");
+
+  useEffect(() => {
+    void track("PAGE_VIEWED", { path: "/" });
+  }, []);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await track("DESTINATION_SEARCHED", { destination });
+    if (checkIn && checkOut)
+      await track("TRAVEL_DATES_SELECTED", { checkIn, checkOut });
+    await track("TRAVEL_PARTY_SELECTED", {
+      adults: Number(adults),
+      children: Number(children),
     });
-    const d = await fetch(`${API}/api/sessions/${session}/decision`).then((r) =>
-      r.json(),
-    );
-    setResult(
-      d.experience === "MIAMI_GETAWAY"
-        ? `A tailored Miami escape is ready for you — ${d.explanation}`
-        : "Explore Aurora Hotels at your own pace.",
-    );
+    window.location.href = `/results?destination=${encodeURIComponent(destination)}&checkIn=${checkIn}&checkOut=${checkOut}&adults=${adults}&children=${children}`;
   }
+
   return (
-    <main className="shell">
-      <nav className="nav">
-        <div className="brand">AURORA HOTELS</div>
-        <a href="/console">Marketing Console ↗</a>
-      </nav>
-      <section className="hero">
-        <div className="eyebrow">Stay curious</div>
-        <h1>Find your next horizon.</h1>
-        <p>Thoughtful stays in places that give your plans room to unfold.</p>
-        <div className="search">
-          <label htmlFor="destination" className="sr-only">
-            Destination
-          </label>
-          <input
-            id="destination"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="Where are you going? Try Miami"
-          />
-          <button className="button" onClick={search}>
-            Search stays
-          </button>
-        </div>
-        {result && (
-          <div className="banner" role="status">
-            <strong>Made for your journey</strong>
-            <br />
-            {result}
-          </div>
-        )}
-      </section>
+    <main>
+      <div className="shell">
+        <SiteHeader />
+        <section className="hero hero-home">
+          <div className="eyebrow">Stays with a little more sky</div>
+          <h1>Find your next horizon.</h1>
+          <p className="lede">
+            Thoughtful stays in places that give your plans room to unfold.
+          </p>
+          <form className="search-panel" onSubmit={submit}>
+            <div className="field field-wide">
+              <label htmlFor="destination">Where are you going?</label>
+              <input
+                id="destination"
+                required
+                value={destination}
+                onChange={(event) => setDestination(event.target.value)}
+                placeholder="Try Miami"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="check-in">Check in</label>
+              <input
+                id="check-in"
+                type="date"
+                value={checkIn}
+                onChange={(event) => setCheckIn(event.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="check-out">Check out</label>
+              <input
+                id="check-out"
+                type="date"
+                value={checkOut}
+                onChange={(event) => setCheckOut(event.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="adults">Adults</label>
+              <select
+                id="adults"
+                value={adults}
+                onChange={(event) => setAdults(event.target.value)}
+              >
+                {[1, 2, 3, 4, 5, 6].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="children">Children</label>
+              <select
+                id="children"
+                value={children}
+                onChange={(event) => setChildren(event.target.value)}
+              >
+                {[0, 1, 2, 3, 4].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </div>
+            <button className="button" type="submit">
+              Search stays
+            </button>
+          </form>
+          <p className="demo-note">
+            A fictional hospitality showcase for exploring customer
+            intelligence.
+          </p>
+        </section>
+        <section className="feature-grid" aria-label="Aurora values">
+          <article>
+            <span className="feature-number">01</span>
+            <h2>Room to gather</h2>
+            <p>
+              Spaces designed for the people and rituals that make a trip yours.
+            </p>
+          </article>
+          <article>
+            <span className="feature-number">02</span>
+            <h2>Small moments</h2>
+            <p>
+              Local details, generous light, and service that knows when to step
+              back.
+            </p>
+          </article>
+          <article>
+            <span className="feature-number">03</span>
+            <h2>Stay curious</h2>
+            <p>
+              Go somewhere new, or see a familiar place from a different angle.
+            </p>
+          </article>
+        </section>
+        <footer className="site-footer">
+          <span>AURORA HOTELS</span>
+          <Link href="/console">Explore the intelligence console →</Link>
+        </footer>
+      </div>
     </main>
   );
 }

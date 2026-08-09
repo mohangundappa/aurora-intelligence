@@ -1,83 +1,183 @@
 "use client";
-import { useState } from "react";
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { SiteHeader } from "../../components/SiteHeader";
+import { sessionId } from "../../lib/tracker";
+
+type ConsoleData = {
+  events: {
+    eventId: string;
+    eventName: string;
+    eventTime: string;
+    payload: Record<string, unknown>;
+  }[];
+  context: {
+    profile: {
+      identity: {
+        anonymousId: string;
+        customerId: string | null;
+        identified: boolean;
+      };
+      loyalty: { tier: string; points: number };
+      audiences: string[];
+    };
+    activeSignals: {
+      name: string;
+      value: number;
+      confidence: number;
+      explanation: string;
+      provenance: string;
+      expiresAt: string;
+    }[];
+    journeyStage: string;
+  };
+  decision: {
+    experience: string;
+    reasonCodes: string[];
+    explanation: string;
+    correlationId: string;
+  };
+};
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
 export default function Console() {
-  const [session, setSession] = useState("");
-  const [data, setData] = useState<any>();
-  async function load() {
-    setData(
-      await fetch(`${API}/api/console/sessions/${session}`).then((r) =>
-        r.json(),
-      ),
+  const [selectedSession, setSelectedSession] = useState("");
+  const [data, setData] = useState<ConsoleData | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const querySession = new URLSearchParams(window.location.search).get(
+      "session",
     );
+    const current = querySession || sessionId();
+    setSelectedSession(current);
+    void load(current);
+  }, []);
+
+  async function load(value: string) {
+    if (!value) return;
+    setError("");
+    const response = await fetch(`${API}/api/console/sessions/${value}`);
+    if (!response.ok) {
+      setError("No journey is available yet. Search the Aurora site first.");
+      return;
+    }
+    setData(await response.json());
   }
+
   return (
     <main className="console">
-      <div className="shell">
-        <nav className="nav">
-          <div className="brand">AURORA / INTELLIGENCE</div>
-          <a href="/" style={{ color: "#edf4f6" }}>
-            Aurora site ↗
-          </a>
-        </nav>
-        <header className="hero">
-          <div className="eyebrow">Customer intelligence console</div>
-          <h1>See the why behind every decision.</h1>
-          <p className="muted">
-            The local CDP simulator is a stand-in alongside a CDP platform. This
-            view makes derived intelligence explainable.
-          </p>
-          <div className="search">
-            <label htmlFor="session" className="sr-only">
-              Session ID
-            </label>
-            <input
-              id="session"
-              value={session}
-              onChange={(e) => setSession(e.target.value)}
-              placeholder="Paste a session ID"
-            />
-            <button className="button" onClick={load}>
-              Load journey
-            </button>
+      <div className="shell console-shell">
+        <SiteHeader />
+        <header className="console-header">
+          <div>
+            <div className="eyebrow">Marketing intelligence console</div>
+            <h1>See the why behind every decision.</h1>
+            <p className="muted">
+              A presenter-friendly view of observed behavior, derived signals,
+              and next-best action.
+            </p>
+          </div>
+          <div className="console-session">
+            <label htmlFor="session-select">Selected journey</label>
+            <select
+              id="session-select"
+              value={selectedSession}
+              onChange={(event) => {
+                setSelectedSession(event.target.value);
+                void load(event.target.value);
+              }}
+            >
+              <option value={sessionId()}>This browser session</option>
+            </select>
+            <Link href="/">Open Aurora site →</Link>
           </div>
         </header>
+        {error && (
+          <p className="console-error" role="alert">
+            {error}
+          </p>
+        )}
         {data && (
-          <div className="grid">
-            <section className="card">
+          <div className="console-grid">
+            <section className="console-card console-wide">
+              <span className="pill">PROFILE & IDENTITY</span>
+              <h2>
+                {data.context.profile.identity.identified
+                  ? data.context.profile.identity.customerId
+                  : "Anonymous visitor"}
+              </h2>
+              <p className="muted">
+                {data.context.profile.loyalty.tier} ·{" "}
+                {data.context.profile.loyalty.points} points · Journey stage:{" "}
+                <strong>{data.context.journeyStage}</strong>
+              </p>
+              <p className="muted">
+                Anonymous ID: {data.context.profile.identity.anonymousId}
+              </p>
+              <div className="timeline">
+                <span>Observed</span>
+                <span>Signals derived</span>
+                <span>Decision explained</span>
+              </div>
+            </section>
+            <section className="console-card">
               <span className="pill">RAW EVENTS</span>
-              <h2>Observed behavior</h2>
-              {data.events.map((e: any) => (
-                <p key={e.eventId}>
-                  <b>{e.eventName}</b>
-                  <br />
-                  <span className="muted">{JSON.stringify(e.payload)}</span>
-                </p>
+              <h2>What happened</h2>
+              {data.events.map((event) => (
+                <div className="event-row" key={event.eventId}>
+                  <strong>{event.eventName}</strong>
+                  <span className="muted">{JSON.stringify(event.payload)}</span>
+                </div>
               ))}
             </section>
-            <section className="card">
-              <span className="pill">DERIVED SIGNAL</span>
-              <h2>{data.context.signal?.name || "No signal"}</h2>
-              {data.context.signal && (
-                <>
-                  <p>
-                    Value <b>{data.context.signal.value}</b> · Confidence{" "}
-                    <b>{data.context.signal.confidence}</b>
-                  </p>
-                  <p className="muted">
-                    Why: {data.context.signal.explanation}
-                  </p>
-                  <p className="muted">
-                    Freshness: {data.context.signal.freshness}
-                  </p>
-                </>
+            <section className="console-card">
+              <span className="pill">AUDIENCES</span>
+              <h2>Who this resembles</h2>
+              {data.context.profile.audiences.length ? (
+                data.context.profile.audiences.map((audience) => (
+                  <p key={audience}>{audience}</p>
+                ))
+              ) : (
+                <p className="muted">No audience memberships yet.</p>
               )}
+              <p className="muted">
+                CDP simulator · local stand-in alongside a CDP platform
+              </p>
             </section>
-            <section className="card">
-              <span className="pill">NEXT BEST ACTION</span>
+            <section className="console-card console-wide">
+              <span className="pill">DERIVED SIGNALS</span>
+              <h2>Intelligence with provenance</h2>
+              <div className="signal-table">
+                {data.context.activeSignals.map((signal) => (
+                  <article className="signal-row" key={signal.name}>
+                    <div>
+                      <strong>{signal.name}</strong>
+                      <p className="muted">{signal.explanation}</p>
+                      <small>{signal.provenance}</small>
+                    </div>
+                    <div className="signal-score">
+                      <strong>{signal.value}</strong>
+                      <span>confidence {signal.confidence}</span>
+                      <span>
+                        fresh until{" "}
+                        {new Date(signal.expiresAt).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <section className="console-card console-wide decision-card">
+              <span className="pill">NEXT-BEST ACTION</span>
               <h2>{data.decision.experience}</h2>
-              <p className="muted">{data.decision.explanation}</p>
-              <p>Reason codes: {data.decision.reasonCodes.join(" · ")}</p>
+              <p>{data.decision.explanation}</p>
+              <p className="muted">
+                Reason codes: {data.decision.reasonCodes.join(" · ")}
+              </p>
+              <small>Correlation ID: {data.decision.correlationId}</small>
             </section>
           </div>
         )}

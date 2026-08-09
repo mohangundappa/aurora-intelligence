@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.server.ResponseStatusException;
 
 class ExperimentControllerTest {
   private final ExperimentService service = mock(ExperimentService.class);
@@ -18,10 +17,7 @@ class ExperimentControllerTest {
   @Test
   void unknownPerformanceExperimentReturnsNotFound() throws Exception {
     when(service.performance("missing-experiment"))
-        .thenThrow(
-            new ResponseStatusException(
-                org.springframework.http.HttpStatus.NOT_FOUND,
-                "Unknown experiment missing-experiment"));
+        .thenThrow(new UnknownExperimentException("missing-experiment", java.util.List.of()));
 
     mvc.perform(get("/api/experiments/missing-experiment/performance"))
         .andExpect(status().isNotFound());

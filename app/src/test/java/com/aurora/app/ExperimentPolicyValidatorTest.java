@@ -6,10 +6,10 @@ import static org.mockito.Mockito.when;
 
 import com.aurora.decision.DecisionPolicy;
 import com.aurora.experiments.ExperimentRegistry;
+import com.aurora.experiments.UnknownExperimentException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.web.server.ResponseStatusException;
 
 class ExperimentPolicyValidatorTest {
   private final ApplicationContextRunner contextRunner =
@@ -24,8 +24,11 @@ class ExperimentPolicyValidatorTest {
         context -> {
           assertThat(context).hasFailed();
           assertThat(context.getStartupFailure())
-              .hasRootCauseInstanceOf(ResponseStatusException.class)
-              .hasRootCauseMessage("404 NOT_FOUND \"Unknown experiment missing-experiment\"");
+              .hasRootCauseInstanceOf(UnknownExperimentException.class)
+              .hasRootCauseMessage(
+                  "Unknown experiment 'missing-experiment'. Registered experiment ids: []")
+              .hasStackTraceContaining(
+                  "Decision policy references experiment 'missing-experiment' but no definition is registered.");
         });
   }
 
@@ -38,10 +41,7 @@ class ExperimentPolicyValidatorTest {
   private ExperimentRegistry registryWithoutExperiment() {
     ExperimentRegistry registry = mock(ExperimentRegistry.class);
     when(registry.definition("missing-experiment"))
-        .thenThrow(
-            new ResponseStatusException(
-                org.springframework.http.HttpStatus.NOT_FOUND,
-                "Unknown experiment missing-experiment"));
+        .thenThrow(new UnknownExperimentException("missing-experiment", List.of()));
     return registry;
   }
 }

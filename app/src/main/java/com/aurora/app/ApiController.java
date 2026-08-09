@@ -40,7 +40,7 @@ public class ApiController {
       String payload = new ObjectMapper().findAndRegisterModules().writeValueAsString(event.payload());
       jdbc.update(connection -> {
         var ps = connection.prepareStatement("INSERT INTO raw_events(event_id,event_name,event_time,received_time,schema_version,source,session_id,anonymous_id,customer_id,correlation_id,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb)");
-        ps.setObject(1,event.eventId()); ps.setString(2,event.eventName()); ps.setObject(3,event.eventTime()); ps.setObject(4,event.receivedTime());
+        ps.setObject(1,event.eventId()); ps.setString(2,event.eventName()); ps.setObject(3,event.eventTime(), Types.TIMESTAMP_WITH_TIMEZONE); ps.setObject(4,event.receivedTime(), Types.TIMESTAMP_WITH_TIMEZONE);
         ps.setString(5,event.schemaVersion()); ps.setString(6,event.source()); ps.setString(7,event.sessionId()); ps.setString(8,event.anonymousId());
         if (event.customerId() == null) ps.setNull(9, Types.VARCHAR); else ps.setString(9,event.customerId());
         ps.setString(10,event.correlationId()); ps.setString(11,payload); return ps;

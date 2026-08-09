@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,8 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequestMapping("/api")
 public class ApiController {
   private final EventPublisher publisher; private final SignalEngine signals; private final SimulatedCdpAdapter cdp; private final DecisionEngine decisions;
+  private final JdbcTemplate jdbc;
   private final Map<UUID,EventEnvelope> raw = new ConcurrentHashMap<>(); private final Map<UUID,String> quarantine = new ConcurrentHashMap<>();
-  public ApiController(EventPublisher p, SignalEngine s, SimulatedCdpAdapter c, DecisionEngine d) { publisher=p;signals=s;cdp=c;decisions=d; }
+  public ApiController(EventPublisher p, SignalEngine s, SimulatedCdpAdapter c, DecisionEngine d, JdbcTemplate jdbc) { publisher=p;signals=s;cdp=c;decisions=d;this.jdbc=jdbc; }
   @PostMapping("/v1/events") public Map<String,Object> ingest(@RequestBody JsonNode body) throws Exception {
     ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
     List<EventEnvelope> items = new ArrayList<>();
@@ -30,6 +32,11 @@ public class ApiController {
   }
   private Map<String,Object> envelope(EventEnvelope event) {
     if (raw.putIfAbsent(event.eventId(), event) != null) return Map.of("status","duplicate","eventId",event.eventId());
+    try {
+      String payload = new ObjectMapper().findAndRegisterModules().writeValueAsString(event.payload());
+      jdbc.update("INSERT INTO raw_events(event_id,event_name,event_time,received_time,schema_version,source,session_id,anonymous_id,customer_id,correlation_id,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb)",
+        event.eventId(),event.eventName(),event.eventTime(),event.receivedTime(),event.schemaVersion(),event.source(),event.sessionId(),event.anonymousId(),event.customerId(),event.correlationId(),payload);
+    } catch (Exception ignored) { }
     publisher.publish(event); return Map.of("status","accepted","eventId",event.eventId(),"correlationId",event.correlationId());
   }
   @GetMapping("/sessions/{sessionId}/context") public CustomerContext context(@PathVariable String sessionId) {

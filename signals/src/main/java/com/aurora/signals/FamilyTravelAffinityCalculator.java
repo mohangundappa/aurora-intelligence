@@ -3,7 +3,10 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Component;
 
+@Component
 public class FamilyTravelAffinityCalculator extends CalculatorSupport {
   @Override
   public String name() {
@@ -25,6 +28,7 @@ public class FamilyTravelAffinityCalculator extends CalculatorSupport {
         family > 0
             ? "A travel party with children was selected."
             : "No family-party evidence is present.",
-        family);
+        family,
+        Map.of("children", String.valueOf(family > 0 ? "present" : "none")));
   }
 }

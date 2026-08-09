@@ -1,0 +1,14 @@
+name: template-signal
+version: "1.0"
+inputs: [PAGE_VIEWED]
+calculationType: RULE
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: event-derived
+freshness: 30m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "The reusable template observed {evidenceCount} page-view event(s)."
+lifecycleStatus: DRAFT
+owner: Customer Intelligence

@@ -3,7 +3,10 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Component;
 
+@Component
 public class AmenityPreferenceCalculator extends CalculatorSupport {
   @Override
   public String name() {
@@ -16,6 +19,7 @@ public class AmenityPreferenceCalculator extends CalculatorSupport {
     return new SignalCalculation(
         Math.min(100, evidence * 30 + recency(definition, events) * 30),
         "Amenity and filter interactions were aggregated over the session.",
-        evidence);
+        evidence,
+        Map.of("amenity", "interacted"));
   }
 }

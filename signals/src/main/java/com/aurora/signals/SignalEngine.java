@@ -77,6 +77,7 @@ public class SignalEngine {
                 + calculation.evidenceCount()
                 + " matching event(s); freshness window "
                 + definition.freshness(),
+            calculation.attributes(),
             latest.sessionId(),
             latest.customerId(),
             latest.correlationId());
@@ -92,8 +93,8 @@ public class SignalEngine {
     jdbc.update(
         """
         insert into derived_signals(name,value,confidence,computed_at,expires_at,explanation,provenance,
-                                     session_id,customer_id,correlation_id)
-        values (?,?,?,?,?,?,?,?,?,?)
+                                     attributes,session_id,customer_id,correlation_id)
+        values (?,?,?,?,?,?,?,?::jsonb,?,?,?)
         """,
         snapshot.name(),
         snapshot.value(),
@@ -102,9 +103,18 @@ public class SignalEngine {
         java.sql.Timestamp.from(snapshot.expiresAt()),
         snapshot.explanation(),
         snapshot.provenance(),
+        attributes(snapshot),
         snapshot.sessionId(),
         snapshot.customerId(),
         snapshot.correlationId());
+  }
+
+  private String attributes(SignalSnapshot snapshot) {
+    try {
+      return mapper.writeValueAsString(snapshot.attributes());
+    } catch (Exception exception) {
+      throw new IllegalStateException("Unable to serialize signal attributes", exception);
+    }
   }
 
   private EventEnvelope toEvent(ResultSet result) {

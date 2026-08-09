@@ -3,6 +3,7 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
 
 public class TextAffinityCalculator extends CalculatorSupport {
   private final String signal;
@@ -28,6 +29,7 @@ public class TextAffinityCalculator extends CalculatorSupport {
     return new SignalCalculation(
         matched ? 75 + recency(definition, events) * 20 : 15,
         matched ? positive : negative,
-        evidence(definition, events));
+        evidence(definition, events),
+        Map.of("affinity", matched ? token : "none"));
   }
 }

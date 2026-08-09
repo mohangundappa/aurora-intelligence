@@ -3,7 +3,9 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
+@Component
 public class AbandonmentRiskCalculator extends CalculatorSupport {
   @Override
   public String name() {

@@ -65,13 +65,7 @@ public class ContextService {
             sessionId,
             recent,
             activeSignals,
-            stage == null
-                ? "Discovery"
-                : stage
-                    .explanation()
-                    .replace(
-                        "Journey stage is derived from the furthest observed funnel event: ", "")
-                    .replace(".", ""),
+            stage == null ? "Discovery" : stage.attributes().getOrDefault("stage", "Discovery"),
             eligible,
             decision);
     cache.put(sessionId, context);

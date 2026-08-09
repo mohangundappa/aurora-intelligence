@@ -41,7 +41,7 @@ public class DecisionPolicy {
                             String.valueOf(rule.get("action")),
                             String.valueOf(rule.get("experience")),
                             String.valueOf(rule.get("signal")),
-                            String.valueOf(rule.getOrDefault("explanationContains", "")),
+                            (Map<String, String>) rule.getOrDefault("attributeEquals", Map.of()),
                             Double.parseDouble(String.valueOf(rule.get("minimumValue"))),
                             Double.parseDouble(String.valueOf(rule.get("minimumConfidence"))),
                             (List<String>) rule.get("reasonCodes"),
@@ -66,8 +66,12 @@ public class DecisionPolicy {
               .filter(candidate -> candidate.confidence() >= rule.minimumConfidence())
               .filter(
                   candidate ->
-                      rule.explanationContains().isBlank()
-                          || candidate.explanation().contains(rule.explanationContains()))
+                      rule.attributeEquals().entrySet().stream()
+                          .allMatch(
+                              condition ->
+                                  condition
+                                      .getValue()
+                                      .equals(candidate.attributes().get(condition.getKey()))))
               .filter(candidate -> candidate.expiresAt().isAfter(java.time.Instant.now()))
               .findFirst()
               .orElse(null);
@@ -92,7 +96,7 @@ public class DecisionPolicy {
       String action,
       String experience,
       String signal,
-      String explanationContains,
+      Map<String, String> attributeEquals,
       double minimumValue,
       double minimumConfidence,
       List<String> reasonCodes,

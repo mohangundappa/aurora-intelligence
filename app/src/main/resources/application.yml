@@ -20,4 +20,5 @@ management:
   endpoints.web.exposure.include: health,info,metrics
   endpoint.health.show-details: always
 springdoc.swagger-ui.path: /swagger-ui.html
+aurora.signals.location: ${AURORA_SIGNALS_LOCATION:classpath:/signals/*.yaml}
 logging.pattern.console: '{"timestamp":"%d{yyyy-MM-dd''T''HH:mm:ss.SSSXXX}","level":"%p","correlationId":"%X{correlationId:-}","logger":"%c","message":"%m"}%n'

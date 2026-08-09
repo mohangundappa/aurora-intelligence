@@ -10,7 +10,7 @@ rules:
     action: SHOW_DESTINATION
     experience: MIAMI_GETAWAY
     signal: destination-intent
-    explanationContains: Miami
+    attributeEquals: {destination: Miami}
     minimumValue: 60
     minimumConfidence: 0.50
     reasonCodes: [DESTINATION_INTENT_ELIGIBLE, ACTIVE_SEARCH]
@@ -19,7 +19,7 @@ rules:
     action: SHOW_DESTINATION
     experience: DESTINATION_DISCOVERY
     signal: destination-intent
-    explanationContains: ""
+    attributeEquals: {}
     minimumValue: 30
     minimumConfidence: 0.40
     reasonCodes: [DESTINATION_INTENT_PRESENT]

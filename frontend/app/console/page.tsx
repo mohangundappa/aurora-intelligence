@@ -48,12 +48,43 @@ type SessionSummary = {
   lastActivity: string;
 };
 
+type ModelVersion = {
+  modelName: string;
+  version: string;
+  status: string;
+  features: string[];
+};
+
+type ExperimentPerformance = {
+  experimentId: string;
+  control: {
+    exposed: number;
+    clicks: number;
+    bookingStarts: number;
+    completions: number;
+    conversionRate: number;
+  };
+  treatment: {
+    exposed: number;
+    clicks: number;
+    bookingStarts: number;
+    completions: number;
+    conversionRate: number;
+  };
+  insufficientSample: boolean;
+  warning: string;
+};
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Console() {
   const [selectedSession, setSelectedSession] = useState("");
   const [data, setData] = useState<ConsoleData | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [models, setModels] = useState<ModelVersion[]>([]);
+  const [experiment, setExperiment] = useState<ExperimentPerformance | null>(
+    null,
+  );
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -64,7 +95,32 @@ export default function Console() {
     setSelectedSession(current);
     void load(current);
     void loadSessions();
+    void loadModels();
+    void loadExperiment();
   }, []);
+
+  async function loadModels() {
+    const response = await fetch(`${API}/api/models/booking-intent`);
+    if (response.ok) setModels(await response.json());
+  }
+
+  async function loadExperiment() {
+    const response = await fetch(
+      `${API}/api/experiments/destination-experience-v1/performance`,
+    );
+    if (response.ok) setExperiment(await response.json());
+  }
+
+  async function changeModel(
+    version: string,
+    action: "approve" | "deploy" | "rollback",
+  ) {
+    const response = await fetch(
+      `${API}/api/models/booking-intent/${version}/${action}`,
+      { method: "POST" },
+    );
+    if (response.ok) void loadModels();
+  }
 
   async function loadSessions() {
     const response = await fetch(`${API}/api/console/sessions`);
@@ -124,6 +180,116 @@ export default function Console() {
         )}
         {data && (
           <div className="console-grid">
+            <section className="console-card console-wide">
+              <span className="pill">MODEL & SIGNAL LIFECYCLE</span>
+              <h2>Booking-intent rollout</h2>
+              <p className="muted">
+                Register, approve, deploy, or roll back a version while the
+                explainable signal remains observable.
+              </p>
+              {models.map((model) => (
+                <div className="event-row" key={model.version}>
+                  <strong>Version {model.version}</strong>
+                  <span className="pill">{model.status}</span>
+                  {(model.status === "TESTED" || model.status === "DRAFT") && (
+                    <button
+                      type="button"
+                      onClick={() => void changeModel(model.version, "approve")}
+                    >
+                      Approve
+                    </button>
+                  )}
+                  {model.status !== "DEPLOYED" && (
+                    <button
+                      type="button"
+                      onClick={() => void changeModel(model.version, "deploy")}
+                    >
+                      Deploy / rollback
+                    </button>
+                  )}
+                </div>
+              ))}
+            </section>
+            {experiment && (
+              <section className="console-card console-wide">
+                <span className="pill">EXPERIMENT PERFORMANCE</span>
+                <h2>Destination experience test</h2>
+                {experiment.insufficientSample && (
+                  <p className="console-error" role="status">
+                    Insufficient sample: {experiment.warning}
+                  </p>
+                )}
+                <div className="signal-table">
+                  {[experiment.control, experiment.treatment].map((variant) => (
+                    <article className="signal-row" key={variant.exposed}>
+                      <div>
+                        <strong>
+                          {variant === experiment.control
+                            ? "Control"
+                            : "Treatment"}
+                        </strong>
+                        <p className="muted">
+                          {variant.exposed} exposures · {variant.clicks} clicks
+                          · {variant.bookingStarts} booking starts
+                        </p>
+                      </div>
+                      <div className="signal-score">
+                        <strong>{variant.completions}</strong>
+                        <span>booking completions</span>
+                        <span>
+                          {experiment.insufficientSample
+                            ? "Conversion held until sample is sufficient"
+                            : `${Math.round(variant.conversionRate * 100)}% conversion`}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+            <section className="console-card console-wide">
+              <span className="pill">DELIVERY COMPARISON</span>
+              <h2>Reusable delivery target</h2>
+              <p className="muted">
+                Assumption-derived target, not a measured commercial result.
+              </p>
+              <div className="signal-table">
+                {[
+                  [
+                    "Signal definition and validation",
+                    3,
+                    1,
+                    "Reusable schema and calculator template",
+                  ],
+                  [
+                    "Offline model evaluation",
+                    4,
+                    2,
+                    "Versioned dataset and evaluation harness",
+                  ],
+                  [
+                    "Deployment and rollback",
+                    3,
+                    1,
+                    "Lifecycle registry and audit trail",
+                  ],
+                ].map(([activity, traditional, accelerated, why]) => (
+                  <article className="signal-row" key={String(activity)}>
+                    <div>
+                      <strong>{activity}</strong>
+                      <p className="muted">{why}</p>
+                    </div>
+                    <div className="signal-score">
+                      <span>Traditional: {traditional} days</span>
+                      <span>Accelerated: {accelerated} days</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <p className="muted">
+                Computed target reduction from these assumptions: 42.9%.
+              </p>
+            </section>
             <section className="console-card console-wide">
               <span className="pill">PROFILE & IDENTITY</span>
               <h2>

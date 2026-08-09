@@ -6,21 +6,18 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PriceSensitivityCalculator extends CalculatorSupport {
+public class TenthSignalCalculator extends CalculatorSupport {
   @Override
   public String name() {
-    return "price-sensitivity";
+    return "template-signal";
   }
 
   @Override
   public SignalCalculation calculate(SignalDefinition definition, List<EventEnvelope> events) {
-    boolean budget = contains(events, "budget");
     long evidence = evidence(definition, events);
     return new SignalCalculation(
-        budget ? 80 : Math.min(60, evidence * 15),
-        budget
-            ? "Budget-oriented rate or filter behavior was observed."
-            : "No strong price sensitivity signal.",
+        Math.min(100, evidence * 20),
+        definition.explanationTemplate().replace("{evidenceCount}", String.valueOf(evidence)),
         evidence);
   }
 }

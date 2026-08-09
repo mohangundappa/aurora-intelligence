@@ -3,7 +3,10 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Component;
 
+@Component
 public class JourneyStageCalculator extends CalculatorSupport {
   @Override
   public String name() {
@@ -30,6 +33,7 @@ public class JourneyStageCalculator extends CalculatorSupport {
     return new SignalCalculation(
         stage,
         "Journey stage is derived from the furthest observed funnel event: " + stages[stage] + ".",
-        evidence(definition, events));
+        evidence(definition, events),
+        Map.of("stage", stages[stage]));
   }
 }

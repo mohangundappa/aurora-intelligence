@@ -3,7 +3,10 @@ package com.aurora.signals;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Component;
 
+@Component
 public class DestinationIntentCalculator extends CalculatorSupport {
   @Override
   public String name() {
@@ -29,6 +32,7 @@ public class DestinationIntentCalculator extends CalculatorSupport {
             + " time(s); recency contributes "
             + Math.round(recency(definition, events) * 25)
             + " points.",
-        evidence);
+        evidence,
+        Map.of("destination", destination));
   }
 }

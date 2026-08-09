@@ -146,6 +146,7 @@ docs/         architecture, catalogs, ownership, API, roadmap and ADRs
 ## Further reading
 
 - [Architecture](docs/architecture.md)
+- [Data flow](docs/data-flow.md)
 - [Demo script](docs/demo-script.md)
 - [Event catalog](docs/event-catalog.md)
 - [Signal catalog](docs/signal-catalog.md)

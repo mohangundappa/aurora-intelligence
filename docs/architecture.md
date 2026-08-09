@@ -6,6 +6,9 @@ Segment CDP. The local CDP simulator is a provider-neutral development stand-in
 so the showcase runs without a commercial licence; it is not a claim that
 Aurora replaces the CDP.
 
+For a diagram-first view of the same event, consent, decision, and measurement
+paths, see the [data-flow diagrams](data-flow.md).
+
 ## System context
 
 ```mermaid

@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import java.sql.Types;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api")
 public class ApiController {
+  private static final Logger log = LoggerFactory.getLogger(ApiController.class);
   private final EventPublisher publisher; private final SignalEngine signals; private final SimulatedCdpAdapter cdp; private final DecisionEngine decisions;
   private final JdbcTemplate jdbc;
   private final Map<UUID,EventEnvelope> raw = new ConcurrentHashMap<>(); private final Map<UUID,String> quarantine = new ConcurrentHashMap<>();
@@ -34,9 +38,14 @@ public class ApiController {
     if (raw.putIfAbsent(event.eventId(), event) != null) return Map.of("status","duplicate","eventId",event.eventId());
     try {
       String payload = new ObjectMapper().findAndRegisterModules().writeValueAsString(event.payload());
-      jdbc.update("INSERT INTO raw_events(event_id,event_name,event_time,received_time,schema_version,source,session_id,anonymous_id,customer_id,correlation_id,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb)",
-        event.eventId(),event.eventName(),event.eventTime(),event.receivedTime(),event.schemaVersion(),event.source(),event.sessionId(),event.anonymousId(),event.customerId(),event.correlationId(),payload);
-    } catch (Exception ignored) { }
+      jdbc.update(connection -> {
+        var ps = connection.prepareStatement("INSERT INTO raw_events(event_id,event_name,event_time,received_time,schema_version,source,session_id,anonymous_id,customer_id,correlation_id,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?::jsonb)");
+        ps.setObject(1,event.eventId()); ps.setString(2,event.eventName()); ps.setObject(3,event.eventTime()); ps.setObject(4,event.receivedTime());
+        ps.setString(5,event.schemaVersion()); ps.setString(6,event.source()); ps.setString(7,event.sessionId()); ps.setString(8,event.anonymousId());
+        if (event.customerId() == null) ps.setNull(9, Types.VARCHAR); else ps.setString(9,event.customerId());
+        ps.setString(10,event.correlationId()); ps.setString(11,payload); return ps;
+      });
+    } catch (Exception ex) { log.warn("Unable to persist raw event {}", event.eventId(), ex); }
     publisher.publish(event); return Map.of("status","accepted","eventId",event.eventId(),"correlationId",event.correlationId());
   }
   @GetMapping("/sessions/{sessionId}/context") public CustomerContext context(@PathVariable String sessionId) {

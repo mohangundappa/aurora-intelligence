@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SiteHeader } from "../../components/SiteHeader";
 import { properties } from "../../lib/catalog";
-import { track } from "../../lib/tracker";
+import { rememberDecisionCorrelation, track } from "../../lib/tracker";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Results() {
   const params =
@@ -16,6 +18,36 @@ export default function Results() {
   const [resortOnly, setResortOnly] = useState(false);
   const [businessOnly, setBusinessOnly] = useState(false);
   const [maxPrice, setMaxPrice] = useState(500);
+  const [decision, setDecision] = useState<{
+    action: string;
+    experience: string;
+    explanation: string;
+    correlationId: string;
+  } | null>(null);
+  const [offerPresented, setOfferPresented] = useState(false);
+  const session =
+    typeof window === "undefined"
+      ? ""
+      : window.sessionStorage.getItem("aurora.session");
+  useEffect(() => {
+    if (!session) return;
+    void fetch(`${API}/api/sessions/${session}/decision`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => {
+        if (!value) return;
+        setDecision(value);
+        rememberDecisionCorrelation(value.correlationId);
+        void track(
+          "OFFER_PRESENTED",
+          {
+            offerId: value.experience,
+            experience: value.experience,
+          },
+          value.correlationId,
+        );
+        setOfferPresented(true);
+      });
+  }, [session]);
   const filtered = useMemo(
     () =>
       properties.filter(
@@ -47,6 +79,33 @@ export default function Results() {
             Edit search
           </Link>
         </div>
+        {decision && (
+          <section
+            className="experience-banner"
+            aria-label="Personalized experience"
+          >
+            <div>
+              <div className="eyebrow">Recommended for this journey</div>
+              <h2>{decision.experience}</h2>
+              <p>{decision.explanation}</p>
+            </div>
+            {offerPresented && (
+              <button
+                className="button button-small"
+                type="button"
+                onClick={() =>
+                  void track(
+                    "OFFER_CLICKED",
+                    { offerId: decision.experience },
+                    decision.correlationId,
+                  )
+                }
+              >
+                Explore this recommendation
+              </button>
+            )}
+          </section>
+        )}
         <div className="results-layout">
           <aside className="filters" aria-label="Filter results">
             <h2>Refine your stay</h2>

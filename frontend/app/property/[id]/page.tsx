@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "../../../components/SiteHeader";
 import { properties } from "../../../lib/catalog";
 import { track } from "../../../lib/tracker";
 
 export default function PropertyPage({ params }: { params: { id: string } }) {
-  const property =
-    properties.find((item) => item.id === params.id) ?? properties[0];
+  const property = properties.find((item) => item.id === params.id);
+  if (!property) notFound();
   const [identified, setIdentified] = useState(false);
 
   useEffect(() => {

@@ -60,6 +60,18 @@ public class ModelRepository {
           org.springframework.http.HttpStatus.CONFLICT,
           "Illegal model lifecycle transition: " + current.status() + " -> " + status);
     }
+    if ("DEPLOYED".equals(current.status()) && "APPROVED".equals(status)) {
+      Integer deployed =
+          jdbc.queryForObject(
+              "select count(*) from model_versions where model_name=? and status='DEPLOYED'",
+              Integer.class,
+              name);
+      if (deployed != null && deployed < 2) {
+        throw new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.CONFLICT,
+            "Cannot approve the only deployed model version; deploy another version first");
+      }
+    }
     String previous =
         jdbc
             .query(

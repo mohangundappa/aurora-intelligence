@@ -88,7 +88,33 @@ class PostgresIntegrationTest {
     assertThat(replayed).isEqualTo(2);
   }
 
+  @Test
+  void personalizationEvidenceIsExcludedPerEventAndSafeDefaultIsShown() throws Exception {
+    String session = UUID.randomUUID().toString();
+    JsonNode denied =
+        event(
+            "DESTINATION_SEARCHED",
+            session,
+            "anon-consent-it",
+            "{\"destination\":\"Miami\"}",
+            false);
+    assertThat(ingest.ingest(denied).accepted()).isEqualTo(1);
+    consumer.consume(mapper.writeValueAsString(events.findBySession(session).get(0)));
+    cache.evict(session);
+
+    var context = this.context.forSession(session);
+    assertThat(context.activeSignals()).isEmpty();
+    assertThat(context.recommendedAction().experience()).isEqualTo("STANDARD_WELCOME");
+    assertThat(context.recommendedAction().reasonCodes()).contains("CONSENT_NOT_GRANTED");
+  }
+
   private JsonNode event(String name, String session, String anonymous, String payload)
+      throws Exception {
+    return event(name, session, anonymous, payload, true);
+  }
+
+  private JsonNode event(
+      String name, String session, String anonymous, String payload, boolean personalization)
       throws Exception {
     Instant now = Instant.now();
     return mapper.readTree(
@@ -103,11 +129,19 @@ class PostgresIntegrationTest {
           "sessionId": "%s",
           "anonymousId": "%s",
           "correlationId": "%s",
-          "consent": {"analytics": true, "personalization": true},
+          "consent": {"analytics": true, "personalization": %s},
           "payload": %s
         }
         """
             .formatted(
-                UUID.randomUUID(), name, now, now, session, anonymous, UUID.randomUUID(), payload));
+                UUID.randomUUID(),
+                name,
+                now,
+                now,
+                session,
+                anonymous,
+                UUID.randomUUID(),
+                personalization,
+                payload));
   }
 }

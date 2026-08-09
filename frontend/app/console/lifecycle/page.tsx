@@ -11,10 +11,30 @@ type Signal = { signalName: string; version: string; status: string };
 export default function LifecyclePage() {
   const [models, setModels] = useState<Model[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [error, setError] = useState("");
 
   async function refresh() {
-    setModels(await getApi<Model[]>("/api/models/booking-intent"));
-    setSignals(await getApi<Signal[]>("/api/signals/lifecycle"));
+    const [nextModels, nextSignals] = await Promise.all([
+      getApi<Model[]>("/api/models/booking-intent"),
+      getApi<Signal[]>("/api/signals/lifecycle"),
+    ]);
+    setModels(nextModels);
+    setSignals(nextSignals);
+  }
+
+  async function transition(path: string) {
+    setError("");
+    try {
+      await postApi(path);
+      await refresh();
+    } catch (exception) {
+      setError(
+        exception instanceof Error
+          ? exception.message
+          : "Lifecycle transition was rejected.",
+      );
+      await refresh();
+    }
   }
 
   useEffect(() => {
@@ -41,6 +61,11 @@ export default function LifecyclePage() {
             </p>
           </div>
         </header>
+        {error && (
+          <p className="console-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="console-grid">
           <section className="console-card console-wide">
             <span className="pill">MODEL LIFECYCLE</span>
@@ -53,10 +78,9 @@ export default function LifecyclePage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await postApi(
+                      await transition(
                         `/api/models/booking-intent/${model.version}/approve`,
                       );
-                      await refresh();
                     }}
                   >
                     Approve
@@ -66,10 +90,9 @@ export default function LifecyclePage() {
                   <button
                     type="button"
                     onClick={async () => {
-                      await postApi(
+                      await transition(
                         `/api/models/booking-intent/${model.version}/deploy`,
                       );
-                      await refresh();
                     }}
                   >
                     Deploy / rollback
@@ -88,10 +111,9 @@ export default function LifecyclePage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await postApi(
+                    await transition(
                       `/api/signals/lifecycle/${signal.signalName}/TESTED`,
                     );
-                    await refresh();
                   }}
                 >
                   Test
@@ -99,10 +121,9 @@ export default function LifecyclePage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await postApi(
+                    await transition(
                       `/api/signals/lifecycle/${signal.signalName}/APPROVED`,
                     );
-                    await refresh();
                   }}
                 >
                   Approve
@@ -110,10 +131,9 @@ export default function LifecyclePage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await postApi(
+                    await transition(
                       `/api/signals/lifecycle/${signal.signalName}/DEPLOYED`,
                     );
-                    await refresh();
                   }}
                 >
                   Deploy

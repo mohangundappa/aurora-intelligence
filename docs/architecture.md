@@ -8,6 +8,8 @@ Aurora replaces the CDP.
 
 For a diagram-first view of the same event, consent, decision, and measurement
 paths, see the [data-flow diagrams](data-flow.md).
+The business-case assumptions and their limits are mapped in the
+[value thesis](value-thesis.md).
 
 ## System context
 

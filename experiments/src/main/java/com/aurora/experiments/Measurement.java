@@ -4,8 +4,12 @@ public final class Measurement {
   private Measurement() {}
 
   public static Result conversion(
-      long exposed, long converted, long controlExposed, long controlConverted) {
-    if (exposed < 30 || controlExposed < 30) {
+      long exposed,
+      long converted,
+      long controlExposed,
+      long controlConverted,
+      long minimumExposuresPerVariant) {
+    if (exposed < minimumExposuresPerVariant || controlExposed < minimumExposuresPerVariant) {
       return new Result(
           rate(converted, exposed),
           rate(controlConverted, controlExposed),

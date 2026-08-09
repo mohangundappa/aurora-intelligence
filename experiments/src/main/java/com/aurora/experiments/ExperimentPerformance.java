@@ -4,8 +4,10 @@ import java.util.List;
 
 public record ExperimentPerformance(
     String experimentId,
-    Variant control,
-    Variant treatment,
+    String name,
+    String description,
+    String primaryOutcomeEvent,
+    int minimumExposuresPerVariant,
     List<Variant> variants,
     boolean insufficientSample,
     String warning) {

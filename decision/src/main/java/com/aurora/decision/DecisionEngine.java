@@ -55,7 +55,7 @@ public class DecisionEngine {
             policy.channel(),
             result.reasonCodes(),
             policy.version(),
-            result.ruleId() == null ? null : "destination-experience-v1",
+            result.experimentId(),
             result.explanation(),
             sessionId,
             correlationId);

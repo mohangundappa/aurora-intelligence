@@ -70,15 +70,20 @@ version, score and per-feature contributions.
 ## Experiments and identity
 
 ```text
+GET /api/experiments
 GET /api/experiments/{experimentId}/performance
 GET /api/identity/{anonymousId}/timeline
 ```
 
-Performance returns control/treatment exposure, click, booking-start and
-completion counts, conversion rates, and the sample guard. Below 30 exposed
-subjects per arm, lift/significance is withheld and `insufficientSample` is
-true. Identity timeline returns anonymous ID, customer ID, link source,
-correlation ID and timestamp.
+`GET /api/experiments` returns the configured experiment definitions. Each
+definition includes its ID, name, description, declared variants and allocation
+percentages, primary outcome event, minimum exposures per variant, and lifecycle
+status. Performance returns the configured variant list with exposure, click,
+booking-start and primary-outcome counts, conversion rates, and the sample
+guard. Below the definition's minimum exposure threshold for any declared arm,
+`insufficientSample` is true and lift/significance claims are withheld. Identity
+timeline returns anonymous ID, customer ID, link source, correlation ID and
+timestamp.
 
 ## Console
 

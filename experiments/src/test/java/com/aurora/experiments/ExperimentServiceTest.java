@@ -31,10 +31,27 @@ class ExperimentServiceTest {
             any()))
         .thenReturn(0);
 
-    ExperimentPerformance result = new ExperimentService(jdbc).performance("exp");
+    ExperimentRegistry registry = mock(ExperimentRegistry.class);
+    ExperimentDefinition definition =
+        new ExperimentDefinition(
+            "exp",
+            "Experiment",
+            "description",
+            java.util.List.of(
+                new ExperimentDefinition.Variant("control", 50),
+                new ExperimentDefinition.Variant("treatment", 50)),
+            "BOOKING_COMPLETED",
+            30,
+            ExperimentDefinition.LifecycleStatus.DEPLOYED);
+    when(registry.definition("exp")).thenReturn(definition);
 
-    assertThat(result.control().exposed()).isEqualTo(59);
-    assertThat(result.treatment().exposed()).isZero();
+    ExperimentPerformance result = new ExperimentService(jdbc, registry).performance("exp");
+
+    assertThat(result.variants())
+        .extracting(ExperimentPerformance.Variant::name)
+        .containsExactly("control", "treatment");
+    assertThat(result.variants().get(0).exposed()).isEqualTo(59);
+    assertThat(result.variants().get(1).exposed()).isZero();
     assertThat(result.insufficientSample()).isTrue();
   }
 }

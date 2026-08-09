@@ -45,7 +45,10 @@ public class DecisionPolicy {
                             Double.parseDouble(String.valueOf(rule.get("minimumValue"))),
                             Double.parseDouble(String.valueOf(rule.get("minimumConfidence"))),
                             (List<String>) rule.get("reasonCodes"),
-                            String.valueOf(rule.get("explanation"))))
+                            String.valueOf(rule.get("explanation")),
+                            rule.get("experimentId") == null
+                                ? null
+                                : String.valueOf(rule.get("experimentId"))))
                 .toList();
   }
 
@@ -77,7 +80,12 @@ public class DecisionPolicy {
               .orElse(null);
       if (signal != null) {
         return new DecisionPolicyResult(
-            rule.id(), rule.action(), rule.experience(), rule.reasonCodes(), rule.explanation());
+            rule.id(),
+            rule.action(),
+            rule.experience(),
+            rule.reasonCodes(),
+            rule.explanation(),
+            rule.experimentId());
       }
     }
     return new DecisionPolicyResult(
@@ -85,7 +93,8 @@ public class DecisionPolicy {
         defaultRule.action(),
         defaultRule.experience(),
         defaultRule.reasonCodes(),
-        defaultRule.explanation());
+        defaultRule.explanation(),
+        null);
   }
 
   private record Default(
@@ -100,12 +109,14 @@ public class DecisionPolicy {
       double minimumValue,
       double minimumConfidence,
       List<String> reasonCodes,
-      String explanation) {}
+      String explanation,
+      String experimentId) {}
 
   public record DecisionPolicyResult(
       String ruleId,
       String action,
       String experience,
       List<String> reasonCodes,
-      String explanation) {}
+      String explanation,
+      String experimentId) {}
 }

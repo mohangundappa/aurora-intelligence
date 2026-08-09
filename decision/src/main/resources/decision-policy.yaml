@@ -14,6 +14,7 @@ rules:
     minimumConfidence: 0.50
     reasonCodes: [FAMILY_RESORT_EVIDENCE, RESORT_AFFINITY_ELIGIBLE]
     explanation: "Family-party and resort browsing evidence support a family-resort recommendation."
+    experimentId: destination-experience-v1
   - id: MIAMI_GETAWAY
     action: SHOW_DESTINATION
     experience: MIAMI_GETAWAY
@@ -23,6 +24,7 @@ rules:
     minimumConfidence: 0.50
     reasonCodes: [DESTINATION_INTENT_ELIGIBLE, ACTIVE_SEARCH]
     explanation: "Destination intent is eligible for the Miami getaway experience."
+    experimentId: destination-experience-v1
   - id: DESTINATION_DISCOVERY
     action: SHOW_DESTINATION
     experience: DESTINATION_DISCOVERY
@@ -32,3 +34,4 @@ rules:
     minimumConfidence: 0.40
     reasonCodes: [DESTINATION_INTENT_PRESENT]
     explanation: "Destination intent is eligible for discovery content."
+    experimentId: destination-experience-v1

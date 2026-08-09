@@ -149,7 +149,8 @@ getaway pattern {evidenceCount} time(s).” **Owner:** Destination marketing.
 
 `weekend-getaway-affinity` is this worked example: one YAML definition plus one
 calculator class, with no central registry edit. The generic starter remains
-`signals/signal-template.yaml`.
+`signals/src/main/resources/signal-template.yaml`; it is a skeleton with
+placeholder values and no real signal semantics.
 
 ## Lifecycle state machine
 

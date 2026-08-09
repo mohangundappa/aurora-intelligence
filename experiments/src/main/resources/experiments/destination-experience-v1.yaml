@@ -1,0 +1,11 @@
+id: destination-experience-v1
+name: Destination experience test
+description: Tests the personalized destination experience against the control experience.
+variants:
+  - name: control
+    allocationPercentage: 50
+  - name: treatment
+    allocationPercentage: 50
+primaryOutcomeEvent: BOOKING_COMPLETED
+minimumExposuresPerVariant: 30
+lifecycleStatus: DEPLOYED

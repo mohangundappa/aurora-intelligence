@@ -1,0 +1,14 @@
+name: replace-with-signal-name
+version: "1.0"
+inputs: [REPLACE_WITH_EVENT_NAME]
+calculationType: RULE
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: replace-with-confidence-method
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "Replace with an explanation that includes {evidenceCount}."
+lifecycleStatus: DRAFT
+owner: Replace with owning team

@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "../../../components/SiteHeader";
 import { getApi } from "../../../lib/api";
-import { sessionId } from "../../../lib/tracker";
 
 export default function FunnelPage() {
   const [funnel, setFunnel] = useState<Record<string, number>>({});
   useEffect(() => {
-    void getApi<Record<string, number>>(
-      `/api/console/funnel/${sessionId()}`,
-    ).then(setFunnel);
+    const selected =
+      new URLSearchParams(window.location.search).get("session") ??
+      window.sessionStorage.getItem("aurora.session");
+    if (selected) {
+      void getApi<Record<string, number>>(
+        `/api/console/funnel/${selected}`,
+      ).then(setFunnel);
+    }
   }, []);
   return (
     <main className="console">

@@ -25,6 +25,37 @@ test("presenter path renders events, explanations, identity, and outcome", async
     .getByRole("button", { name: /Trigger presenter abandonment/ })
     .click();
 
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Sign in to demo account" }).click();
+  await expect(
+    page.getByText(/now identified as an Aurora Circle member/),
+  ).toBeVisible();
+  const session = await page.evaluate(() =>
+    sessionStorage.getItem("aurora.session"),
+  );
+  const anonymous = await page.evaluate(() =>
+    localStorage.getItem("aurora.anonymous"),
+  );
+  expect(session).toBeTruthy();
+  expect(anonymous).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(
+        `http://localhost:8080/api/identity/${anonymous}/timeline`,
+      );
+      return response.ok() ? (await response.json()).length : 0;
+    })
+    .toBeGreaterThan(0);
+
+  await page.goto("/booking/aurora-miami?room=family-suite");
+  await page.getByLabel("First name").fill("Demo");
+  await page.getByLabel("Last name").fill("Traveler");
+  await page.getByLabel("Email").fill("traveler@example.test");
+  await page.getByRole("button", { name: "Confirm simulated booking" }).click();
+  await expect(
+    page.getByText(/simulated reservation is confirmed/),
+  ).toBeVisible();
+
   await page.goto("/console");
   await expect(
     page.getByRole("heading", { name: /See the why/ }),
@@ -35,8 +66,17 @@ test("presenter path renders events, explanations, identity, and outcome", async
   await expect(page.locator(".signal-row").first()).toBeVisible();
   await page.goto("/console/funnel");
   await expect(page.getByText("CONVERSION FUNNEL")).toBeVisible();
-  await page.goto("/login");
-  await expect(
-    page.getByRole("heading", { name: /Welcome back/ }),
-  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(
+        `http://localhost:8080/api/console/sessions/${session}`,
+      );
+      if (!response.ok()) return false;
+      const body = await response.json();
+      return body.events.some(
+        (event: { eventName: string }) =>
+          event.eventName === "BOOKING_COMPLETED",
+      );
+    })
+    .toBe(true);
 });

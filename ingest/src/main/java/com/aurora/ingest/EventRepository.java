@@ -122,13 +122,72 @@ public class EventRepository {
     Integer total = jdbc.queryForObject("select count(*) from raw_events", Integer.class);
     Integer quarantined =
         jdbc.queryForObject("select count(*) from quarantined_events", Integer.class);
-    return Map.of(
-        "ingestCount", total == null ? 0 : total,
-        "quarantineCount", quarantined == null ? 0 : quarantined,
-        "quarantineRate",
-            total == null || total == 0
-                ? 0
-                : (double) (quarantined == null ? 0 : quarantined) / total);
+    Map<String, Object> quality = new java.util.LinkedHashMap<>();
+    quality.putAll(
+        Map.of(
+            "ingestCount", total == null ? 0 : total,
+            "quarantineCount", quarantined == null ? 0 : quarantined,
+            "quarantineRate",
+                total == null || total == 0
+                    ? 0
+                    : (double) (quarantined == null ? 0 : quarantined) / total));
+    quality.put("quarantineReasons", quarantineReasons());
+    quality.put(
+        "decisionLatencyMs",
+        jdbc.queryForObject(
+            """
+        select coalesce(avg(extract(epoch from (d.created_at - r.received_time)) * 1000), 0)
+        from decisions d join raw_events r on r.correlation_id=d.correlation_id
+        """,
+            Double.class));
+    quality.put(
+        "consumerLagMs",
+        jdbc.queryForObject(
+            """
+        select coalesce(extract(epoch from (max(r.received_time) - max(s.computed_at))) * 1000, 0)
+        from raw_events r cross join derived_signals s
+        """,
+            Double.class));
+    quality.put(
+        "signalFreshnessDistribution",
+        jdbc.query(
+            """
+        select name, coalesce(avg(extract(epoch from (expires_at - computed_at)) / 60), 0) freshness_minutes
+        from derived_signals group by name order by name
+        """,
+            (result, row) ->
+                Map.of(
+                    "signal", result.getString("name"),
+                    "freshnessMinutes", result.getDouble("freshness_minutes"))));
+    return quality;
+  }
+
+  private Map<String, Integer> quarantineReasons() {
+    return jdbc
+        .query(
+            "select reason, count(*) total from quarantined_events group by reason order by total desc",
+            (result, row) -> Map.entry(result.getString("reason"), result.getInt("total")))
+        .stream()
+        .collect(
+            java.util.stream.Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                Integer::sum,
+                java.util.LinkedHashMap::new));
+  }
+
+  public Map<String, Long> funnel(String sessionId) {
+    return jdbc
+        .queryForList(
+            "select event_name, count(*) total from raw_events where session_id=? group by event_name",
+            sessionId)
+        .stream()
+        .collect(
+            java.util.stream.Collectors.toMap(
+                row -> (String) row.get("event_name"),
+                row -> ((Number) row.get("total")).longValue(),
+                Long::sum,
+                java.util.LinkedHashMap::new));
   }
 
   private EventEnvelope toEnvelope(java.sql.ResultSet result) {

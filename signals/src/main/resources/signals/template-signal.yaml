@@ -1,6 +1,6 @@
-name: template-signal
+name: weekend-getaway-affinity
 version: "1.0"
-inputs: [PAGE_VIEWED]
+inputs: [TRAVEL_DATES_SELECTED]
 calculationType: RULE
 tier: real-time
 lookback: 30d
@@ -9,6 +9,6 @@ confidence: event-derived
 freshness: 30m
 expiry: 24h
 consentRequired: true
-explanationTemplate: "The reusable template observed {evidenceCount} page-view event(s)."
+explanationTemplate: "Weekend dates matched the getaway pattern {evidenceCount} time(s)."
 lifecycleStatus: DRAFT
 owner: Customer Intelligence

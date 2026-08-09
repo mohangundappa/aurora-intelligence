@@ -1,0 +1,13 @@
+activities:
+  - activity: Signal definition and validation
+    traditionalDays: 3
+    acceleratedDays: 1
+    rationale: Reusable schema and calculator template
+  - activity: Offline model evaluation
+    traditionalDays: 4
+    acceleratedDays: 2
+    rationale: Versioned dataset and evaluation harness
+  - activity: Deployment and rollback
+    traditionalDays: 3
+    acceleratedDays: 1
+    rationale: Lifecycle registry and audit trail

@@ -95,4 +95,8 @@ public class ContextService {
   public java.util.Map<String, Object> qualityStats() {
     return events.qualityStats();
   }
+
+  public java.util.Map<String, Long> funnel(String sessionId) {
+    return events.funnel(sessionId);
+  }
 }

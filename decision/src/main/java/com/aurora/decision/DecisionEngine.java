@@ -3,6 +3,7 @@ package com.aurora.decision;
 import com.aurora.common.CdpProfile;
 import com.aurora.common.Decision;
 import com.aurora.common.SignalSnapshot;
+import com.aurora.experiments.ExperimentService;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,15 +12,18 @@ import org.springframework.stereotype.Service;
 public class DecisionEngine {
   private final DecisionPolicy policy;
   private final DecisionRepository repository;
+  private final ExperimentService experiments;
 
   public DecisionEngine(DecisionPolicy policy) {
-    this(policy, null);
+    this(policy, null, null);
   }
 
   @Autowired
-  public DecisionEngine(DecisionPolicy policy, DecisionRepository repository) {
+  public DecisionEngine(
+      DecisionPolicy policy, DecisionRepository repository, ExperimentService experiments) {
     this.policy = policy;
     this.repository = repository;
+    this.experiments = experiments;
   }
 
   public Decision decide(
@@ -56,6 +60,7 @@ public class DecisionEngine {
             sessionId,
             correlationId);
     persist(decision, profile, signals);
+    if (experiments != null) experiments.recordExposure(decision, profile);
     return decision;
   }
 

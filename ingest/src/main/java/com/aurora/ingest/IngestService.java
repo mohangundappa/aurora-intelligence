@@ -1,13 +1,16 @@
 package com.aurora.ingest;
 
+import com.aurora.common.ContextMutationEvent;
 import com.aurora.common.EventCatalog;
 import com.aurora.common.EventEnvelope;
+import com.aurora.experiments.ExperimentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +19,20 @@ public class IngestService {
   private final EventRepository repository;
   private final EventPublisher publisher;
   private final ObjectMapper mapper;
+  private final ExperimentService experiments;
+  private final ApplicationEventPublisher applicationEvents;
 
-  public IngestService(EventRepository repository, EventPublisher publisher, ObjectMapper mapper) {
+  public IngestService(
+      EventRepository repository,
+      EventPublisher publisher,
+      ObjectMapper mapper,
+      ExperimentService experiments,
+      ApplicationEventPublisher applicationEvents) {
     this.repository = repository;
     this.publisher = publisher;
     this.mapper = mapper;
+    this.experiments = experiments;
+    this.applicationEvents = applicationEvents;
   }
 
   @Transactional
@@ -55,6 +67,8 @@ public class IngestService {
           continue;
         }
         publisher.publish(event);
+        experiments.recordOutcome(event);
+        applicationEvents.publishEvent(new ContextMutationEvent(event.sessionId()));
         accepted++;
         acceptedIds.add(event.eventId());
       } catch (JsonProcessingException | IllegalArgumentException exception) {

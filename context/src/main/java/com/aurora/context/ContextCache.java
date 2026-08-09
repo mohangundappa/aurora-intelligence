@@ -1,7 +1,9 @@
 package com.aurora.context;
 
+import com.aurora.common.ContextMutationEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -40,6 +42,11 @@ public class ContextCache {
     } catch (Exception ignored) {
       // Postgres remains the source of truth when Redis is unavailable.
     }
+  }
+
+  @EventListener
+  public void evict(ContextMutationEvent event) {
+    evict(event.sessionId());
   }
 
   private String key(String sessionId) {

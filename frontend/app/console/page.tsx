@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "../../components/SiteHeader";
 import { sessionId } from "../../lib/tracker";
+import { getApi } from "../../lib/api";
 
 type ConsoleData = {
   events: {
@@ -75,6 +76,17 @@ type ExperimentPerformance = {
   warning: string;
 };
 
+type DeliveryComparison = {
+  assumptions: {
+    activity: string;
+    traditionalDays: number;
+    acceleratedDays: number;
+    rationale: string;
+  }[];
+  reduction: number;
+  label: string;
+};
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Console() {
@@ -85,6 +97,7 @@ export default function Console() {
   const [experiment, setExperiment] = useState<ExperimentPerformance | null>(
     null,
   );
+  const [delivery, setDelivery] = useState<DeliveryComparison | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -97,6 +110,7 @@ export default function Console() {
     void loadSessions();
     void loadModels();
     void loadExperiment();
+    void loadDelivery();
   }, []);
 
   async function loadModels() {
@@ -109,6 +123,10 @@ export default function Console() {
       `${API}/api/experiments/destination-experience-v1/performance`,
     );
     if (response.ok) setExperiment(await response.json());
+  }
+
+  async function loadDelivery() {
+    setDelivery(await getApi<DeliveryComparison>("/api/console/delivery"));
   }
 
   async function changeModel(
@@ -142,6 +160,13 @@ export default function Console() {
     <main className="console">
       <div className="shell console-shell">
         <SiteHeader />
+        <nav className="console-nav" aria-label="Console views">
+          <Link href="/console">Journey</Link>
+          <Link href="/console/lifecycle">Lifecycle</Link>
+          <Link href="/console/experiments">Experiments</Link>
+          <Link href="/console/funnel">Funnel</Link>
+          <Link href="/console/ops">Operations</Link>
+        </nav>
         <header className="console-header">
           <div>
             <div className="eyebrow">Marketing intelligence console</div>
@@ -247,49 +272,35 @@ export default function Console() {
                 </div>
               </section>
             )}
-            <section className="console-card console-wide">
-              <span className="pill">DELIVERY COMPARISON</span>
-              <h2>Reusable delivery target</h2>
-              <p className="muted">
-                Assumption-derived target, not a measured commercial result.
-              </p>
-              <div className="signal-table">
-                {[
-                  [
-                    "Signal definition and validation",
-                    3,
-                    1,
-                    "Reusable schema and calculator template",
-                  ],
-                  [
-                    "Offline model evaluation",
-                    4,
-                    2,
-                    "Versioned dataset and evaluation harness",
-                  ],
-                  [
-                    "Deployment and rollback",
-                    3,
-                    1,
-                    "Lifecycle registry and audit trail",
-                  ],
-                ].map(([activity, traditional, accelerated, why]) => (
-                  <article className="signal-row" key={String(activity)}>
-                    <div>
-                      <strong>{activity}</strong>
-                      <p className="muted">{why}</p>
-                    </div>
-                    <div className="signal-score">
-                      <span>Traditional: {traditional} days</span>
-                      <span>Accelerated: {accelerated} days</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <p className="muted">
-                Computed target reduction from these assumptions: 42.9%.
-              </p>
-            </section>
+            {delivery && (
+              <section className="console-card console-wide">
+                <span className="pill">DELIVERY COMPARISON</span>
+                <h2>Reusable delivery target</h2>
+                <p className="muted">{delivery.label}</p>
+                <div className="signal-table">
+                  {delivery.assumptions.map((assumption) => (
+                    <article className="signal-row" key={assumption.activity}>
+                      <div>
+                        <strong>{assumption.activity}</strong>
+                        <p className="muted">{assumption.rationale}</p>
+                      </div>
+                      <div className="signal-score">
+                        <span>
+                          Traditional: {assumption.traditionalDays} days
+                        </span>
+                        <span>
+                          Accelerated: {assumption.acceleratedDays} days
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <p className="muted">
+                  Computed target reduction from these assumptions:{" "}
+                  {(delivery.reduction * 100).toFixed(1)}%.
+                </p>
+              </section>
+            )}
             <section className="console-card console-wide">
               <span className="pill">PROFILE & IDENTITY</span>
               <h2>

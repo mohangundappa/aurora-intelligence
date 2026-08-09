@@ -343,6 +343,24 @@ h2 {
   padding: 4rem 0 2rem;
 }
 
+.console-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1.5rem;
+}
+
+.console-nav a {
+  color: #a7e4d6;
+  text-decoration: none;
+}
+
+.console-nav a:hover,
+.console-nav a:focus-visible {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
 .console-session {
   display: grid;
   gap: 0.5rem;

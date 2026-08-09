@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/console")
 public class ConsoleController {
   private final ContextService context;
+  private final DeliveryComparisonService delivery;
 
-  public ConsoleController(ContextService context) {
+  public ConsoleController(ContextService context, DeliveryComparisonService delivery) {
     this.context = context;
+    this.delivery = delivery;
   }
 
   @GetMapping("/sessions/{sessionId}")
@@ -31,6 +33,20 @@ public class ConsoleController {
 
   @GetMapping("/ops")
   public Map<String, Object> operations() {
-    return Map.of("dataQuality", context.qualityStats(), "components", Map.of("postgres", "UP"));
+    return Map.of(
+        "dataQuality",
+        context.qualityStats(),
+        "components",
+        Map.of("postgres", "UP", "redis", "UP", "redpanda", "UP"));
+  }
+
+  @GetMapping("/funnel/{sessionId}")
+  public Map<String, Long> funnel(@PathVariable String sessionId) {
+    return context.funnel(sessionId);
+  }
+
+  @GetMapping("/delivery")
+  public DeliveryComparisonService.DeliveryComparison delivery() {
+    return delivery.comparison();
   }
 }

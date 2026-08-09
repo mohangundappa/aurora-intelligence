@@ -1,0 +1,14 @@
+name: replace-with-signal-name
+version: "1.0"
+inputs: [EVENT_NAME]
+calculationType: RULE
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: event-derived
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "Explain the evidence used by this signal."
+lifecycleStatus: DRAFT
+owner: Owning team

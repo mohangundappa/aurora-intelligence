@@ -1,0 +1,10 @@
+target/
+node_modules/
+.next/
+out/
+.env
+.env.local
+!.env.example
+*.log
+.idea/
+*.iml

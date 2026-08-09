@@ -1,0 +1,14 @@
+name: abandonment-risk
+version: "1.0"
+inputs: [BOOKING_STARTED, BOOKING_COMPLETED, BOOKING_ABANDONED]
+calculationType: RULE
+tier: real-time
+lookback: 7d
+outputRange: 0-100
+confidence: event-derived
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "An unfinished booking journey increases abandonment risk."
+lifecycleStatus: DEPLOYED
+owner: Customer Intelligence

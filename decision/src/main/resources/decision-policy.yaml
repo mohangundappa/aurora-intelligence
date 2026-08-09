@@ -1,0 +1,34 @@
+version: "1.0"
+channel: web
+default:
+  action: STANDARD_WELCOME
+  experience: STANDARD_WELCOME
+  reasonCodes: [NO_ELIGIBLE_POLICY]
+  explanation: "No configured decision policy was eligible."
+rules:
+  - id: FAMILY_RESORT_RECOMMENDATION
+    action: RECOMMEND_FAMILY_RESORT
+    experience: FAMILY_RESORT_RECOMMENDATION
+    signal: resort-affinity
+    minimumValue: 70
+    minimumConfidence: 0.50
+    reasonCodes: [FAMILY_RESORT_EVIDENCE, RESORT_AFFINITY_ELIGIBLE]
+    explanation: "Family-party and resort browsing evidence support a family-resort recommendation."
+  - id: MIAMI_GETAWAY
+    action: SHOW_DESTINATION
+    experience: MIAMI_GETAWAY
+    signal: destination-intent
+    attributeEquals: {destination: Miami}
+    minimumValue: 60
+    minimumConfidence: 0.50
+    reasonCodes: [DESTINATION_INTENT_ELIGIBLE, ACTIVE_SEARCH]
+    explanation: "Destination intent is eligible for the Miami getaway experience."
+  - id: DESTINATION_DISCOVERY
+    action: SHOW_DESTINATION
+    experience: DESTINATION_DISCOVERY
+    signal: destination-intent
+    attributeEquals: {}
+    minimumValue: 30
+    minimumConfidence: 0.40
+    reasonCodes: [DESTINATION_INTENT_PRESENT]
+    explanation: "Destination intent is eligible for discovery content."

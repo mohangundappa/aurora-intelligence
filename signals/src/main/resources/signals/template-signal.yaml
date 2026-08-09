@@ -1,0 +1,14 @@
+name: weekend-getaway-affinity
+version: "1.0"
+inputs: [TRAVEL_DATES_SELECTED]
+calculationType: RULE
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: event-derived
+freshness: 30m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "Weekend dates matched the getaway pattern {evidenceCount} time(s)."
+lifecycleStatus: DRAFT
+owner: Customer Intelligence

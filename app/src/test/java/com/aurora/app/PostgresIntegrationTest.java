@@ -2,11 +2,13 @@ package com.aurora.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.aurora.common.SignalDefinition;
 import com.aurora.context.ContextCache;
 import com.aurora.context.ContextService;
 import com.aurora.ingest.EventRepository;
 import com.aurora.ingest.IngestService;
 import com.aurora.signals.SignalConsumer;
+import com.aurora.signals.SignalEngine;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -42,6 +44,7 @@ class PostgresIntegrationTest {
   @Autowired IngestService ingest;
   @Autowired EventRepository events;
   @Autowired SignalConsumer consumer;
+  @Autowired SignalEngine signalEngine;
   @Autowired ContextService context;
   @Autowired ContextCache cache;
   @Autowired ObjectMapper mapper;
@@ -106,6 +109,37 @@ class PostgresIntegrationTest {
     assertThat(context.activeSignals()).isEmpty();
     assertThat(context.recommendedAction().experience()).isEqualTo("STANDARD_WELCOME");
     assertThat(context.recommendedAction().reasonCodes()).contains("CONSENT_NOT_GRANTED");
+  }
+
+  @Test
+  void nonConsentRequiredDefinitionStillReceivesDeniedEvidence() throws Exception {
+    String session = UUID.randomUUID().toString();
+    ingest.ingest(
+        event(
+            "DESTINATION_SEARCHED",
+            session,
+            "anon-unrestricted",
+            "{\"destination\":\"Miami\"}",
+            false));
+    SignalDefinition definition =
+        new SignalDefinition(
+            "test",
+            "1.0",
+            java.util.List.of("DESTINATION_SEARCHED"),
+            SignalDefinition.CalculationType.AGGREGATION,
+            "real-time",
+            "30d",
+            "0-100",
+            "standard",
+            "15m",
+            "24h",
+            false,
+            "test",
+            SignalDefinition.LifecycleStatus.DEPLOYED,
+            "test");
+
+    assertThat(signalEngine.evidenceForDefinition(definition, events.findBySession(session)))
+        .hasSize(1);
   }
 
   @Test

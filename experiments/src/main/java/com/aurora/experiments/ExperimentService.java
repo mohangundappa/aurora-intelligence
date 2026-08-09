@@ -15,10 +15,21 @@ public class ExperimentService {
   }
 
   public ExperimentPerformance performance(String experimentId) {
+    java.util.List<ExperimentPerformance.Variant> variants =
+        ExperimentDefinitions.variants(experimentId).stream()
+            .map(variant -> variant(experimentId, variant))
+            .toList();
     return new ExperimentPerformance(
         experimentId,
-        variant(experimentId, "control"),
-        variant(experimentId, "treatment"),
+        variants.stream()
+            .filter(variant -> "control".equals(variant.name()))
+            .findFirst()
+            .orElse(null),
+        variants.stream()
+            .filter(variant -> "treatment".equals(variant.name()))
+            .findFirst()
+            .orElse(null),
+        variants,
         insufficient(experimentId),
         "At least 30 exposed subjects per variant are required before lift or significance is presented.");
   }
@@ -89,9 +100,9 @@ public class ExperimentService {
   }
 
   private boolean insufficient(String experimentId) {
-    int control = countExposures(experimentId, "control");
-    int treatment = countExposures(experimentId, "treatment");
-    return Math.min(control, treatment) < 30;
+    return ExperimentDefinitions.variants(experimentId).stream()
+        .mapToInt(variant -> countExposures(experimentId, variant))
+        .anyMatch(count -> count < 30);
   }
 
   private int countExposures(String experimentId, String variant) {

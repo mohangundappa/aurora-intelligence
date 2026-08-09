@@ -24,18 +24,6 @@ class ExperimentServiceTest {
             eq("treatment")))
         .thenReturn(0);
     when(jdbc.queryForObject(
-            contains("count(*) from experiment_exposures where experiment_id=? and variant=?"),
-            eq(Integer.class),
-            eq("exp"),
-            eq("control")))
-        .thenReturn(59);
-    when(jdbc.queryForObject(
-            contains("count(*) from experiment_exposures where experiment_id=? and variant=?"),
-            eq(Integer.class),
-            eq("exp"),
-            eq("treatment")))
-        .thenReturn(0);
-    when(jdbc.queryForObject(
             contains("select count(*) from experiment_outcomes"),
             eq(Integer.class),
             any(),

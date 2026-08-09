@@ -6,6 +6,7 @@ import com.aurora.common.Decision;
 import com.aurora.common.EventEnvelope;
 import com.aurora.common.SignalSnapshot;
 import com.aurora.decision.DecisionEngine;
+import com.aurora.experiments.ExperimentService;
 import com.aurora.ingest.EventRepository;
 import com.aurora.signals.SignalEngine;
 import java.util.List;
@@ -18,18 +19,21 @@ public class ContextService {
   private final SimulatedCdpAdapter cdp;
   private final DecisionEngine decisions;
   private final ContextCache cache;
+  private final ExperimentService experiments;
 
   public ContextService(
       EventRepository events,
       SignalEngine signals,
       SimulatedCdpAdapter cdp,
       DecisionEngine decisions,
-      ContextCache cache) {
+      ContextCache cache,
+      ExperimentService experiments) {
     this.events = events;
     this.signals = signals;
     this.cdp = cdp;
     this.decisions = decisions;
     this.cache = cache;
+    this.experiments = experiments;
   }
 
   public CustomerContext forSession(String sessionId) {
@@ -59,6 +63,7 @@ public class ContextService {
             activeSignals,
             eligible,
             recent.get(recent.size() - 1).correlationId());
+    experiments.recordExposure(decision, profile);
     CustomerContext context =
         new CustomerContext(
             profile,

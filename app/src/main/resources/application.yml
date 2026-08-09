@@ -1,0 +1,17 @@
+spring:
+  application.name: aurora-intelligence
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/aurora}
+    username: ${DATABASE_USER:aurora}
+    password: ${DATABASE_PASSWORD:aurora_dev}
+    hikari.initialization-fail-timeout: -1
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+  data.redis:
+    connect-timeout: 500ms
+    timeout: 500ms
+management:
+  endpoints.web.exposure.include: health,info,metrics
+  endpoint.health.show-details: always
+springdoc.swagger-ui.path: /swagger-ui.html
+logging.pattern.console: '{"timestamp":"%d{yyyy-MM-dd''T''HH:mm:ss.SSSXXX}","level":"%p","correlationId":"%X{correlationId:-}","logger":"%c","message":"%m"}%n'

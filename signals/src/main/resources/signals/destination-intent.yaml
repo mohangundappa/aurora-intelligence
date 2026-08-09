@@ -1,0 +1,14 @@
+name: destination-intent
+version: "1.0"
+inputs: [DESTINATION_SEARCHED]
+calculationType: RULE
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: event-derived
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "Destination search for {destination} indicates active travel intent."
+lifecycleStatus: ACTIVE
+owner: Customer Intelligence

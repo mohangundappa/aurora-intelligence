@@ -56,6 +56,7 @@ ingest([
     for i, (name, payload) in enumerate([
         ("DESTINATION_SEARCHED", {"destination": "Miami"}),
         ("DESTINATION_SEARCHED", {"destination": "Miami"}),
+        ("TRAVEL_DATES_SELECTED", {"checkIn": "2026-01-16", "checkOut": "2026-01-18"}),
         ("TRAVEL_PARTY_SELECTED", {"adults": 2, "children": 2}),
         ("TRAVEL_PARTY_SELECTED", {"adults": 2, "children": 2}),
         ("FILTER_APPLIED", {"filter": "pool", "value": "true"}),

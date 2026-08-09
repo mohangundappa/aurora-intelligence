@@ -61,6 +61,7 @@ price-sensitivity        80
 booking-intent           100
 abandonment-risk          55
 journey-stage             Abandoned
+weekend-getaway-affinity   35
 ```
 
 Point to **NBA and reason codes**. Expected decision:

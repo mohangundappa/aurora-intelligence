@@ -130,8 +130,9 @@ operations. **Lifecycle:** persisted.
 **Inputs:** `TRAVEL_DATES_SELECTED`. **Tier:** rule/near-real-time.
 **Calculation:** `WeekendGetawayAffinityCalculator` detects weekend-oriented
 dates and emits `tripType=weekend` when evidence exists, otherwise `none`.
-Seeded dates are not part of the deterministic API seed, so its value is 0 in
-the seeded backend scenario. **Output:** numeric value and `tripType`;
+The deterministic headline seed uses 2026-01-16 through 2026-01-18, a Friday
+through Sunday short stay, so its verified value is 35 and `tripType=weekend`.
+**Output:** numeric value and `tripType`;
 freshness from YAML. **Explanation template:** “Weekend dates matched the
 getaway pattern {evidenceCount} time(s).” **Owner:** Destination marketing.
 **Lifecycle:** persisted. This is the worked example for adding a signal.

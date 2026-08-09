@@ -33,7 +33,10 @@ public class SignalRegistry {
       Resource[] resources = resolver.getResources(location);
       for (Resource resource : resources) {
         try (InputStream input = resource.getInputStream()) {
-          loaded.add(toDefinition(yaml.load(input)));
+          Object parsed = yaml.load(input);
+          if (parsed != null) {
+            loaded.add(toDefinition((Map<String, Object>) parsed));
+          }
         }
       }
     } catch (Exception exception) {

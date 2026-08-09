@@ -18,7 +18,7 @@ public final class ExperimentAssignment {
       byte[] digest =
           MessageDigest.getInstance("SHA-256")
               .digest((subject + ":" + experimentId).getBytes(StandardCharsets.UTF_8));
-      int bucket = Integer.parseInt(HexFormat.of().formatHex(digest).substring(0, 8), 16) % 100;
+      long bucket = Long.parseLong(HexFormat.of().formatHex(digest).substring(0, 8), 16) % 100;
       return bucket < 50 ? "control" : "treatment";
     } catch (Exception exception) {
       throw new IllegalStateException("Unable to assign experiment variant", exception);

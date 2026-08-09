@@ -7,6 +7,7 @@ import com.aurora.models.Prediction;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class BookingIntentCalculator extends CalculatorSupport {
@@ -36,7 +37,16 @@ public class BookingIntentCalculator extends CalculatorSupport {
             "roomViewed", (double) count(events, "ROOM_VIEWED"),
             "rateViewed", (double) count(events, "RATE_VIEWED"),
             "bookingStarted", (double) count(events, "BOOKING_STARTED"));
-    Prediction prediction = models.predict("booking-intent", features);
+    Prediction prediction;
+    try {
+      prediction = models.predict("booking-intent", features);
+    } catch (ResponseStatusException exception) {
+      return new SignalCalculation(
+          0,
+          "Booking-intent model is unavailable; no score was served.",
+          evidence,
+          Map.of("modelVersion", "UNAVAILABLE"));
+    }
     return new SignalCalculation(
         prediction.score(),
         prediction.explanation() + " Contributions: " + prediction.contributions() + ".",

@@ -89,12 +89,19 @@ public class ExperimentService {
   }
 
   private boolean insufficient(String experimentId) {
-    Integer minimum =
+    int control = countExposures(experimentId, "control");
+    int treatment = countExposures(experimentId, "treatment");
+    return Math.min(control, treatment) < 30;
+  }
+
+  private int countExposures(String experimentId, String variant) {
+    Integer count =
         jdbc.queryForObject(
-            "select coalesce(min(count),0) from (select count(*) from experiment_exposures where experiment_id=? group by variant) groups(count)",
+            "select count(*) from experiment_exposures where experiment_id=? and variant=?",
             Integer.class,
-            experimentId);
-    return minimum == null || minimum < 30;
+            experimentId,
+            variant);
+    return count == null ? 0 : count;
   }
 
   private boolean isOutcome(String eventName) {

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ModelServiceTest {
@@ -13,13 +14,14 @@ class ModelServiceTest {
     ModelRepository repository = mock(ModelRepository.class);
     when(repository.findDeployed("booking-intent"))
         .thenReturn(
-            new ModelVersion(
-                "booking-intent",
-                "3.0",
-                "DEPLOYED",
-                List.of("propertyViewed", "bookingStarted"),
-                Map.of("propertyViewed", 10d, "bookingStarted", 20d),
-                5d));
+            Optional.of(
+                new ModelVersion(
+                    "booking-intent",
+                    "3.0",
+                    "DEPLOYED",
+                    List.of("propertyViewed", "bookingStarted"),
+                    Map.of("propertyViewed", 10d, "bookingStarted", 20d),
+                    5d)));
 
     Prediction prediction =
         new ModelService(repository)

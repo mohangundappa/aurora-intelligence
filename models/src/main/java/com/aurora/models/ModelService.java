@@ -65,7 +65,14 @@ public class ModelService {
 
   public Prediction predict(String name, Map<String, Double> features) {
     long started = System.nanoTime();
-    ModelVersion model = repository.findDeployed(name);
+    ModelVersion model =
+        repository
+            .findDeployed(name)
+            .orElseThrow(
+                () ->
+                    new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "No deployed model version for " + name));
     double score = model.bias();
     Map<String, Double> contributions = new LinkedHashMap<>();
     for (String feature : model.features()) {

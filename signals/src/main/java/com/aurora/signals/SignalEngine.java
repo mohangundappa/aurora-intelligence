@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -37,16 +36,10 @@ public class SignalEngine {
             """,
             (result, row) -> toEvent(result),
             sessionId);
-    if (events.isEmpty()) return List.of();
-    List<SignalSnapshot> snapshots = new ArrayList<>();
-    for (SignalDefinition definition : registry.definitions()) {
-      SignalSnapshot snapshot = calculate(definition, events);
-      if (snapshot != null) {
-        persist(snapshot);
-        snapshots.add(snapshot);
-      }
-    }
-    return snapshots;
+    return registry.definitions().stream()
+        .filter(definition -> eligible(definition, events))
+        .map(definition -> calculate(definition, events))
+        .toList();
   }
 
   public SignalDefinition definition(String name) {
@@ -57,166 +50,42 @@ public class SignalEngine {
     return registry.definitions();
   }
 
-  private SignalSnapshot calculate(SignalDefinition definition, List<EventEnvelope> events) {
-    EventEnvelope latest = events.get(events.size() - 1);
-    if (definition.consentRequired()
-        && events.stream().noneMatch(event -> event.consent().personalization())) return null;
-    Instant now = Instant.now();
-    Instant mostRecent =
-        events.stream()
-            .filter(event -> definition.inputs().contains(event.eventName()))
-            .map(EventEnvelope::eventTime)
-            .max(Instant::compareTo)
-            .orElse(null);
-    if (mostRecent == null && !"journey-stage".equals(definition.name())) return null;
+  private boolean eligible(SignalDefinition definition, List<EventEnvelope> events) {
+    return !definition.consentRequired()
+        || events.stream().anyMatch(event -> event.consent().personalization());
+  }
 
-    long matching =
-        events.stream().filter(event -> definition.inputs().contains(event.eventName())).count();
-    double recency =
-        mostRecent == null
-            ? 0
-            : Math.max(0, 1 - Duration.between(mostRecent, now).toHours() / 720d);
-    double value;
-    String explanation;
-    switch (definition.name()) {
-      case "destination-intent" -> {
-        value = Math.min(100, 35 + matching * 20 + recency * 25);
-        String destination =
-            events.stream()
-                .filter(event -> "DESTINATION_SEARCHED".equals(event.eventName()))
-                .reduce((first, second) -> second)
-                .map(event -> String.valueOf(event.payload().get("destination")))
-                .orElse("a destination");
-        explanation =
-            "A destination search for "
-                + destination
-                + " occurred "
-                + matching
-                + " time(s); recency contributes "
-                + Math.round(recency * 25)
-                + " points.";
-      }
-      case "family-travel-affinity" -> {
-        long family =
-            events.stream()
-                .filter(event -> "TRAVEL_PARTY_SELECTED".equals(event.eventName()))
-                .filter(
-                    event ->
-                        Integer.parseInt(
-                                String.valueOf(event.payload().getOrDefault("children", 0)))
-                            > 0)
-                .count();
-        value = Math.min(100, family * 55 + recency * 30);
-        explanation =
-            family > 0
-                ? "A travel party with children was selected."
-                : "No family-party evidence is present.";
-      }
-      case "resort-affinity" -> {
-        boolean resort =
-            events.stream()
-                .anyMatch(
-                    event -> String.valueOf(event.payload()).toLowerCase().contains("resort"));
-        value = resort ? 75 + recency * 20 : 15;
-        explanation =
-            resort
-                ? "Resort inventory or filtering was explored."
-                : "Limited resort preference evidence.";
-      }
-      case "business-travel-affinity" -> {
-        boolean business =
-            events.stream()
-                .anyMatch(
-                    event -> String.valueOf(event.payload()).toLowerCase().contains("business"));
-        value = business ? 78 + recency * 15 : 10;
-        explanation =
-            business
-                ? "Business-oriented inventory was explored."
-                : "Limited business-travel evidence.";
-      }
-      case "amenity-preference" -> {
-        value = Math.min(100, matching * 30 + recency * 30);
-        explanation = "Amenity and filter interactions were aggregated over the session.";
-      }
-      case "booking-intent" -> {
-        long bookingSteps =
-            events.stream()
-                .filter(
-                    event ->
-                        List.of("PROPERTY_VIEWED", "ROOM_VIEWED", "RATE_VIEWED", "BOOKING_STARTED")
-                            .contains(event.eventName()))
-                .count();
-        value = Math.min(100, bookingSteps * 18 + recency * 28);
-        explanation =
-            "The explainable baseline score combines booking funnel steps and event recency.";
-      }
-      case "price-sensitivity" -> {
-        boolean lowRate =
-            events.stream()
-                .anyMatch(
-                    event -> String.valueOf(event.payload()).toLowerCase().contains("budget"));
-        value = lowRate ? 80 : Math.min(60, matching * 15);
-        explanation =
-            lowRate
-                ? "Budget-oriented rate or filter behavior was observed."
-                : "No strong price sensitivity signal.";
-      }
-      case "abandonment-risk" -> {
-        boolean started =
-            events.stream().anyMatch(event -> "BOOKING_STARTED".equals(event.eventName()));
-        boolean completed =
-            events.stream().anyMatch(event -> "BOOKING_COMPLETED".equals(event.eventName()));
-        value = started && !completed ? Math.min(95, 55 + recency * 35) : 5;
-        explanation =
-            started && !completed
-                ? "A booking was started without a completion event."
-                : "No unfinished booking journey is present.";
-      }
-      case "journey-stage" -> {
-        value =
-            events.stream().anyMatch(event -> "BOOKING_COMPLETED".equals(event.eventName()))
-                ? 4
-                : events.stream().anyMatch(event -> "BOOKING_ABANDONED".equals(event.eventName()))
-                    ? 3
-                    : events.stream().anyMatch(event -> "BOOKING_STARTED".equals(event.eventName()))
-                        ? 2
-                        : events.stream()
-                                .anyMatch(
-                                    event ->
-                                        List.of("PROPERTY_VIEWED", "ROOM_VIEWED", "RATE_VIEWED")
-                                            .contains(event.eventName()))
-                            ? 1
-                            : 0;
-        String[] stages = {"Discovery", "Consideration", "Booking", "Abandoned", "Converted"};
-        explanation =
-            "Journey stage is derived from the furthest observed funnel event: "
-                + stages[(int) value]
-                + ".";
-      }
-      default -> throw new IllegalStateException("Unsupported signal " + definition.name());
-    }
-    double confidence = Math.min(0.99, 0.45 + Math.min(0.4, matching * 0.1) + recency * 0.1);
-    Duration freshness = parseDuration(definition.freshness());
+  private SignalSnapshot calculate(SignalDefinition definition, List<EventEnvelope> events) {
+    SignalCalculation calculation =
+        registry.calculator(definition.name()).calculate(definition, events);
+    Instant now = Instant.now();
     Duration expiry = parseDuration(definition.expiry());
-    Instant expiresAt = now.plus(expiry);
-    return new SignalSnapshot(
-        definition.name(),
-        Math.round(value * 100) / 100d,
-        Math.round(confidence * 100) / 100d,
-        now,
-        expiresAt,
-        explanation,
-        "YAML definition "
-            + definition.version()
-            + " / "
-            + definition.calculationType()
-            + " over "
-            + matching
-            + " matching event(s); freshness window "
-            + freshness,
-        latest.sessionId(),
-        latest.customerId(),
-        latest.correlationId());
+    EventEnvelope latest = events.get(events.size() - 1);
+    SignalSnapshot snapshot =
+        new SignalSnapshot(
+            definition.name(),
+            Math.round(calculation.value() * 100) / 100d,
+            confidence(calculation.evidenceCount()),
+            now,
+            now.plus(expiry),
+            calculation.explanation(),
+            "YAML definition "
+                + definition.version()
+                + " / "
+                + definition.calculationType()
+                + " over "
+                + calculation.evidenceCount()
+                + " matching event(s); freshness window "
+                + definition.freshness(),
+            latest.sessionId(),
+            latest.customerId(),
+            latest.correlationId());
+    persist(snapshot);
+    return snapshot;
+  }
+
+  private double confidence(long evidence) {
+    return Math.min(0.99, 0.45 + Math.min(0.4, evidence * 0.1) + 0.1);
   }
 
   private void persist(SignalSnapshot snapshot) {

@@ -1,0 +1,26 @@
+version: "1.0"
+channel: web
+default:
+  action: STANDARD_WELCOME
+  experience: STANDARD_WELCOME
+  reasonCodes: [NO_ELIGIBLE_POLICY]
+  explanation: "No configured decision policy was eligible."
+rules:
+  - id: MIAMI_GETAWAY
+    action: SHOW_DESTINATION
+    experience: MIAMI_GETAWAY
+    signal: destination-intent
+    explanationContains: Miami
+    minimumValue: 60
+    minimumConfidence: 0.50
+    reasonCodes: [DESTINATION_INTENT_ELIGIBLE, ACTIVE_SEARCH]
+    explanation: "Destination intent is eligible for the Miami getaway experience."
+  - id: DESTINATION_DISCOVERY
+    action: SHOW_DESTINATION
+    experience: DESTINATION_DISCOVERY
+    signal: destination-intent
+    explanationContains: ""
+    minimumValue: 30
+    minimumConfidence: 0.40
+    reasonCodes: [DESTINATION_INTENT_PRESENT]
+    explanation: "Destination intent is eligible for discovery content."

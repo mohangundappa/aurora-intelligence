@@ -1,64 +1,65 @@
 package com.aurora.decision;
 
-import com.aurora.common.*;
+import com.aurora.common.CdpProfile;
+import com.aurora.common.Decision;
+import com.aurora.common.SignalSnapshot;
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DecisionEngine {
-  public Decision decide(
-      String sessionId, SignalResult signal, boolean personalizationConsent, String correlationId) {
-    if (!personalizationConsent)
-      return new Decision(
-          "STANDARD_WELCOME",
-          java.util.List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
-          "Personalization is disabled, so the standard welcome experience is shown.",
-          sessionId,
-          correlationId);
-    if (signal != null)
-      return new Decision(
-          "MIAMI_GETAWAY",
-          java.util.List.of("DESTINATION_INTENT_HIGH", "ACTIVE_SEARCH"),
-          signal.explanation(),
-          sessionId,
-          signal.correlationId());
-    return new Decision(
-        "STANDARD_WELCOME",
-        java.util.List.of("NO_ELIGIBLE_SIGNAL"),
-        "No eligible signal was available.",
-        sessionId,
-        correlationId);
+  private final DecisionPolicy policy;
+  private final DecisionRepository repository;
+
+  public DecisionEngine(DecisionPolicy policy) {
+    this(policy, null);
+  }
+
+  @Autowired
+  public DecisionEngine(DecisionPolicy policy, DecisionRepository repository) {
+    this.policy = policy;
+    this.repository = repository;
   }
 
   public Decision decide(
       String sessionId,
-      SignalSnapshot signal,
+      CdpProfile profile,
+      List<SignalSnapshot> signals,
       boolean personalizationConsent,
       String correlationId) {
-    if (!personalizationConsent) {
-      return new Decision(
-          "STANDARD_WELCOME",
-          java.util.List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
-          "Personalization is disabled, so the standard welcome experience is shown.",
-          sessionId,
-          correlationId);
+    if (!personalizationConsent || !profile.consent().personalization()) {
+      Decision decision =
+          new Decision(
+              "STANDARD_WELCOME",
+              "STANDARD_WELCOME",
+              "web",
+              List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
+              policy.version(),
+              null,
+              "Personalization is disabled, so the standard welcome experience is shown.",
+              sessionId,
+              correlationId);
+      persist(decision, profile, signals);
+      return decision;
     }
-    if (signal == null) {
-      return new Decision(
-          "STANDARD_WELCOME",
-          java.util.List.of("NO_ELIGIBLE_SIGNAL"),
-          "No eligible signal was available.",
-          sessionId,
-          correlationId);
-    }
-    String experience =
-        signal.explanation().toLowerCase().contains("miami")
-            ? "MIAMI_GETAWAY"
-            : "DESTINATION_DISCOVERY";
-    return new Decision(
-        experience,
-        java.util.List.of("SIGNAL_ELIGIBLE", signal.name().toUpperCase().replace('-', '_')),
-        signal.explanation(),
-        sessionId,
-        signal.correlationId());
+    DecisionPolicy.DecisionPolicyResult result = policy.evaluate(signals);
+    Decision decision =
+        new Decision(
+            result.action(),
+            result.experience(),
+            policy.channel(),
+            result.reasonCodes(),
+            policy.version(),
+            result.ruleId(),
+            result.explanation(),
+            sessionId,
+            correlationId);
+    persist(decision, profile, signals);
+    return decision;
+  }
+
+  private void persist(Decision decision, CdpProfile profile, List<SignalSnapshot> signals) {
+    if (repository != null) repository.save(decision, profile, signals);
   }
 }

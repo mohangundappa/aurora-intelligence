@@ -22,6 +22,7 @@ public class SignalRegistry {
           "abandonment-risk",
           "journey-stage");
   private final List<SignalDefinition> definitions = new ArrayList<>();
+  private final Map<String, SignalCalculator> calculators;
 
   public SignalRegistry() {
     Yaml yaml = new Yaml();
@@ -50,6 +51,29 @@ public class SignalRegistry {
         throw new IllegalStateException("Unable to load signal definition " + signal, exception);
       }
     }
+    calculators =
+        Map.ofEntries(
+            Map.entry("destination-intent", new DestinationIntentCalculator()),
+            Map.entry("family-travel-affinity", new FamilyTravelAffinityCalculator()),
+            Map.entry(
+                "resort-affinity",
+                new TextAffinityCalculator(
+                    "resort-affinity",
+                    "resort",
+                    "Resort inventory or filtering was explored.",
+                    "Limited resort preference evidence.")),
+            Map.entry(
+                "business-travel-affinity",
+                new TextAffinityCalculator(
+                    "business-travel-affinity",
+                    "business",
+                    "Business-oriented inventory was explored.",
+                    "Limited business-travel evidence.")),
+            Map.entry("amenity-preference", new AmenityPreferenceCalculator()),
+            Map.entry("booking-intent", new BookingIntentCalculator()),
+            Map.entry("price-sensitivity", new PriceSensitivityCalculator()),
+            Map.entry("abandonment-risk", new AbandonmentRiskCalculator()),
+            Map.entry("journey-stage", new JourneyStageCalculator()));
   }
 
   public List<SignalDefinition> definitions() {
@@ -61,5 +85,12 @@ public class SignalRegistry {
         .filter(definition -> definition.name().equals(name))
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("Unknown signal " + name));
+  }
+
+  public SignalCalculator calculator(String name) {
+    SignalCalculator calculator = calculators.get(name);
+    if (calculator == null)
+      throw new IllegalArgumentException("No calculator registered for " + name);
+    return calculator;
   }
 }

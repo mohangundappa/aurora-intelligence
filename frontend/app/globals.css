@@ -109,6 +109,19 @@ h2 {
   align-items: center;
 }
 
+.site-header nav a {
+  color: var(--teal);
+}
+
+.site-header-console nav a {
+  color: #b7f0e2;
+}
+
+.site-header-console nav a:hover,
+.site-header-console nav a:focus-visible {
+  color: #ffffff;
+}
+
 .hero-home {
   padding: 7rem 0 5rem;
 }

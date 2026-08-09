@@ -176,19 +176,44 @@ public class EventRepository {
                 java.util.LinkedHashMap::new));
   }
 
-  public Map<String, Long> funnel(String sessionId) {
-    return jdbc
-        .queryForList(
-            "select event_name, count(*) total from raw_events where session_id=? group by event_name",
-            sessionId)
-        .stream()
-        .collect(
-            java.util.stream.Collectors.toMap(
-                row -> (String) row.get("event_name"),
-                row -> ((Number) row.get("total")).longValue(),
-                Long::sum,
-                java.util.LinkedHashMap::new));
+  public Funnel funnel(String sessionId) {
+    String filter = sessionId == null ? "" : " where session_id = ?";
+    List<Object> args = sessionId == null ? List.of() : List.of(sessionId);
+    Map<String, Long> eventCounts =
+        jdbc
+            .queryForList(
+                "select event_name, count(distinct session_id) total from raw_events"
+                    + filter
+                    + " group by event_name",
+                args.toArray())
+            .stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    row -> (String) row.get("event_name"),
+                    row -> ((Number) row.get("total")).longValue(),
+                    Long::sum,
+                    java.util.LinkedHashMap::new));
+    List<String> stages =
+        List.of(
+            "DESTINATION_SEARCHED",
+            "PROPERTY_VIEWED",
+            "ROOM_VIEWED",
+            "RATE_VIEWED",
+            "BOOKING_STARTED",
+            "BOOKING_COMPLETED");
+    List<FunnelStage> result = new java.util.ArrayList<>();
+    long previous = 0;
+    for (String stage : stages) {
+      long count = eventCounts.getOrDefault(stage, 0L);
+      result.add(new FunnelStage(stage, count, previous == 0 ? 0 : previous - count));
+      previous = count;
+    }
+    return new Funnel(sessionId, result);
   }
+
+  public record Funnel(String sessionId, List<FunnelStage> stages) {}
+
+  public record FunnelStage(String stage, long sessions, long dropOff) {}
 
   private EventEnvelope toEnvelope(java.sql.ResultSet result) {
     try {

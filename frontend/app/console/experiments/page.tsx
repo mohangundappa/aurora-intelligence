@@ -34,7 +34,7 @@ export default function ExperimentsPage() {
   return (
     <main className="console">
       <div className="shell console-shell">
-        <SiteHeader />
+        <SiteHeader surface="console" />
         <nav className="console-nav" aria-label="Console views">
           <Link href="/console">Journey</Link>
           <Link href="/console/lifecycle">Lifecycle</Link>

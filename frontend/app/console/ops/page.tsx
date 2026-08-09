@@ -26,7 +26,7 @@ export default function OpsPage() {
   return (
     <main className="console">
       <div className="shell console-shell">
-        <SiteHeader />
+        <SiteHeader surface="console" />
         <nav className="console-nav" aria-label="Console views">
           <Link href="/console">Journey</Link>
           <Link href="/console/lifecycle">Lifecycle</Link>
@@ -68,7 +68,7 @@ export default function OpsPage() {
               <h2>{Math.round(ops.dataQuality.decisionLatencyMs)} ms</h2>
               <p className="muted">Average decision latency</p>
               <p className="muted">
-                Consumer lag equivalent:{" "}
+                Consumer lag approximation (persisted timestamps):{" "}
                 {Math.round(ops.dataQuality.consumerLagMs)} ms
               </p>
               {Object.entries(ops.components).map(([component, status]) => (

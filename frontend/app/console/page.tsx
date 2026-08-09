@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "../../components/SiteHeader";
 import { sessionId } from "../../lib/tracker";
-import { getApi } from "../../lib/api";
 
 type ConsoleData = {
   events: {
@@ -49,55 +48,12 @@ type SessionSummary = {
   lastActivity: string;
 };
 
-type ModelVersion = {
-  modelName: string;
-  version: string;
-  status: string;
-  features: string[];
-};
-
-type ExperimentPerformance = {
-  experimentId: string;
-  control: {
-    exposed: number;
-    clicks: number;
-    bookingStarts: number;
-    completions: number;
-    conversionRate: number;
-  };
-  treatment: {
-    exposed: number;
-    clicks: number;
-    bookingStarts: number;
-    completions: number;
-    conversionRate: number;
-  };
-  insufficientSample: boolean;
-  warning: string;
-};
-
-type DeliveryComparison = {
-  assumptions: {
-    activity: string;
-    traditionalDays: number;
-    acceleratedDays: number;
-    rationale: string;
-  }[];
-  reduction: number;
-  label: string;
-};
-
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Console() {
   const [selectedSession, setSelectedSession] = useState("");
   const [data, setData] = useState<ConsoleData | null>(null);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [models, setModels] = useState<ModelVersion[]>([]);
-  const [experiment, setExperiment] = useState<ExperimentPerformance | null>(
-    null,
-  );
-  const [delivery, setDelivery] = useState<DeliveryComparison | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -108,37 +64,7 @@ export default function Console() {
     setSelectedSession(current);
     void load(current);
     void loadSessions();
-    void loadModels();
-    void loadExperiment();
-    void loadDelivery();
   }, []);
-
-  async function loadModels() {
-    const response = await fetch(`${API}/api/models/booking-intent`);
-    if (response.ok) setModels(await response.json());
-  }
-
-  async function loadExperiment() {
-    const response = await fetch(
-      `${API}/api/experiments/destination-experience-v1/performance`,
-    );
-    if (response.ok) setExperiment(await response.json());
-  }
-
-  async function loadDelivery() {
-    setDelivery(await getApi<DeliveryComparison>("/api/console/delivery"));
-  }
-
-  async function changeModel(
-    version: string,
-    action: "approve" | "deploy" | "rollback",
-  ) {
-    const response = await fetch(
-      `${API}/api/models/booking-intent/${version}/${action}`,
-      { method: "POST" },
-    );
-    if (response.ok) void loadModels();
-  }
 
   async function loadSessions() {
     const response = await fetch(`${API}/api/console/sessions`);
@@ -159,7 +85,7 @@ export default function Console() {
   return (
     <main className="console">
       <div className="shell console-shell">
-        <SiteHeader />
+        <SiteHeader surface="console" />
         <nav className="console-nav" aria-label="Console views">
           <Link href="/console">Journey</Link>
           <Link href="/console/lifecycle">Lifecycle</Link>
@@ -205,102 +131,6 @@ export default function Console() {
         )}
         {data && (
           <div className="console-grid">
-            <section className="console-card console-wide">
-              <span className="pill">MODEL & SIGNAL LIFECYCLE</span>
-              <h2>Booking-intent rollout</h2>
-              <p className="muted">
-                Register, approve, deploy, or roll back a version while the
-                explainable signal remains observable.
-              </p>
-              {models.map((model) => (
-                <div className="event-row" key={model.version}>
-                  <strong>Version {model.version}</strong>
-                  <span className="pill">{model.status}</span>
-                  {(model.status === "TESTED" || model.status === "DRAFT") && (
-                    <button
-                      type="button"
-                      onClick={() => void changeModel(model.version, "approve")}
-                    >
-                      Approve
-                    </button>
-                  )}
-                  {model.status !== "DEPLOYED" && (
-                    <button
-                      type="button"
-                      onClick={() => void changeModel(model.version, "deploy")}
-                    >
-                      Deploy / rollback
-                    </button>
-                  )}
-                </div>
-              ))}
-            </section>
-            {experiment && (
-              <section className="console-card console-wide">
-                <span className="pill">EXPERIMENT PERFORMANCE</span>
-                <h2>Destination experience test</h2>
-                {experiment.insufficientSample && (
-                  <p className="console-error" role="status">
-                    Insufficient sample: {experiment.warning}
-                  </p>
-                )}
-                <div className="signal-table">
-                  {[experiment.control, experiment.treatment].map((variant) => (
-                    <article className="signal-row" key={variant.exposed}>
-                      <div>
-                        <strong>
-                          {variant === experiment.control
-                            ? "Control"
-                            : "Treatment"}
-                        </strong>
-                        <p className="muted">
-                          {variant.exposed} exposures · {variant.clicks} clicks
-                          · {variant.bookingStarts} booking starts
-                        </p>
-                      </div>
-                      <div className="signal-score">
-                        <strong>{variant.completions}</strong>
-                        <span>booking completions</span>
-                        <span>
-                          {experiment.insufficientSample
-                            ? "Conversion held until sample is sufficient"
-                            : `${Math.round(variant.conversionRate * 100)}% conversion`}
-                        </span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-            {delivery && (
-              <section className="console-card console-wide">
-                <span className="pill">DELIVERY COMPARISON</span>
-                <h2>Reusable delivery target</h2>
-                <p className="muted">{delivery.label}</p>
-                <div className="signal-table">
-                  {delivery.assumptions.map((assumption) => (
-                    <article className="signal-row" key={assumption.activity}>
-                      <div>
-                        <strong>{assumption.activity}</strong>
-                        <p className="muted">{assumption.rationale}</p>
-                      </div>
-                      <div className="signal-score">
-                        <span>
-                          Traditional: {assumption.traditionalDays} days
-                        </span>
-                        <span>
-                          Accelerated: {assumption.acceleratedDays} days
-                        </span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                <p className="muted">
-                  Computed target reduction from these assumptions:{" "}
-                  {(delivery.reduction * 100).toFixed(1)}%.
-                </p>
-              </section>
-            )}
             <section className="console-card console-wide">
               <span className="pill">PROFILE & IDENTITY</span>
               <h2>

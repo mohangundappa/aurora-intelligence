@@ -1,5 +1,6 @@
 package com.aurora.context;
 
+import com.aurora.ingest.EventRepository;
 import com.aurora.ingest.EventRepository.SessionSummary;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +41,8 @@ public class ConsoleController {
         Map.of("postgres", "UP", "redis", "UP", "redpanda", "UP"));
   }
 
-  @GetMapping("/funnel/{sessionId}")
-  public Map<String, Long> funnel(@PathVariable String sessionId) {
+  @GetMapping({"/funnel", "/funnel/{sessionId}"})
+  public EventRepository.Funnel funnel(@PathVariable(required = false) String sessionId) {
     return context.funnel(sessionId);
   }
 

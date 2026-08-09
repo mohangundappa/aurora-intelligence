@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: Aurora Intelligence API
+  version: 0.1.0
+  description: Event ingestion and replay API for the Aurora showcase.
+paths:
+  /api/v1/events:
+    post:
+      summary: Ingest one event envelope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventEnvelope'
+      responses:
+        '200':
+          description: Partial-success ingest result
+  /api/v1/events/replay:
+    post:
+      summary: Replay raw events for a session
+      parameters:
+        - in: query
+          name: sessionId
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Replay count}
+components:
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [eventId, eventName, eventTime, receivedTime, schemaVersion, source, sessionId, anonymousId, correlationId, consent, payload]
+      properties:
+        eventId: {type: string, format: uuid}
+        eventName: {type: string}
+        eventTime: {type: string, format: date-time}
+        receivedTime: {type: string, format: date-time}
+        schemaVersion: {type: string}
+        source: {type: string}
+        sessionId: {type: string}
+        anonymousId: {type: string}
+        customerId: {type: string, nullable: true}
+        correlationId: {type: string}
+        consent:
+          type: object
+          required: [analytics, personalization]
+          properties:
+            analytics: {type: boolean}
+            personalization: {type: boolean}
+        payload: {type: object, additionalProperties: true}

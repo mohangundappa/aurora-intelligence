@@ -2,11 +2,22 @@ package com.aurora.signals;
 
 import com.aurora.common.SignalDefinition;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class SignalLifecycleService {
+  private static final Map<String, Set<String>> LEGAL_TRANSITIONS =
+      Map.of(
+          "DRAFT", Set.of("TESTED"),
+          "TESTED", Set.of("DRAFT", "APPROVED"),
+          "APPROVED", Set.of("TESTED", "DEPLOYED"),
+          "DEPLOYED", Set.of("APPROVED", "RETIRED"),
+          "RETIRED", Set.of());
   private final JdbcTemplate jdbc;
   private final SignalRegistry registry;
 
@@ -36,9 +47,17 @@ public class SignalLifecycleService {
   public SignalLifecycle transition(String name, String status, String actor) {
     SignalDefinition definition = registry.definition(name);
     ensure(definition);
+    if (!LEGAL_TRANSITIONS.containsKey(status)) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Unknown signal lifecycle status: " + status);
+    }
     String current =
         jdbc.queryForObject(
             "select status from signal_lifecycle where signal_name=?", String.class, name);
+    if (!LEGAL_TRANSITIONS.getOrDefault(current, Set.of()).contains(status)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Illegal signal lifecycle transition: " + current + " -> " + status);
+    }
     jdbc.update(
         "update signal_lifecycle set status=?,version=?,updated_at=now() where signal_name=?",
         status,

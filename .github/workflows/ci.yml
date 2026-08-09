@@ -31,3 +31,13 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: ${{ false }}
+    # E2E is intentionally gated until CI provisions Docker Compose services
+    # and browser binaries; run `cd frontend && npm run e2e` against the local
+    # documented stack.
+    steps:
+      - run: echo "Playwright is gated; run against the Compose showcase stack."

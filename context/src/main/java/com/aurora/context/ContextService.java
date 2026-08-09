@@ -101,7 +101,7 @@ public class ContextService {
     return events.qualityStats();
   }
 
-  public java.util.Map<String, Long> funnel(String sessionId) {
+  public EventRepository.Funnel funnel(String sessionId) {
     return events.funnel(sessionId);
   }
 }

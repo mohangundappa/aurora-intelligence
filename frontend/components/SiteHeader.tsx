@@ -1,8 +1,14 @@
 import Link from "next/link";
 
-export function SiteHeader() {
+export function SiteHeader({
+  surface = "site",
+}: {
+  surface?: "site" | "console";
+}) {
   return (
-    <header className="site-header">
+    <header
+      className={`site-header ${surface === "console" ? "site-header-console" : ""}`}
+    >
       <Link className="brand" href="/">
         AURORA HOTELS
       </Link>

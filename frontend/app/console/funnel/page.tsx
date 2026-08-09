@@ -6,21 +6,26 @@ import { SiteHeader } from "../../../components/SiteHeader";
 import { getApi } from "../../../lib/api";
 
 export default function FunnelPage() {
-  const [funnel, setFunnel] = useState<Record<string, number>>({});
+  const [funnel, setFunnel] = useState<{
+    sessionId: string | null;
+    stages: { stage: string; sessions: number; dropOff: number }[];
+  } | null>(null);
   useEffect(() => {
     const selected =
       new URLSearchParams(window.location.search).get("session") ??
       window.sessionStorage.getItem("aurora.session");
     if (selected) {
-      void getApi<Record<string, number>>(
-        `/api/console/funnel/${selected}`,
-      ).then(setFunnel);
+      void getApi<typeof funnel>(`/api/console/funnel/${selected}`).then(
+        setFunnel,
+      );
+    } else {
+      void getApi<typeof funnel>("/api/console/funnel").then(setFunnel);
     }
   }, []);
   return (
     <main className="console">
       <div className="shell console-shell">
-        <SiteHeader />
+        <SiteHeader surface="console" />
         <nav className="console-nav" aria-label="Console views">
           <Link href="/console">Journey</Link>
           <Link href="/console/lifecycle">Lifecycle</Link>
@@ -33,20 +38,22 @@ export default function FunnelPage() {
             <div className="eyebrow">Journey measurement</div>
             <h1>See where intent moves forward or falls away.</h1>
             <p className="muted">
-              Counts are calculated from persisted events for the selected
-              browser journey.
+              Counts are distinct sessions across persisted events; add a
+              session filter for the presenter walkthrough.
             </p>
           </div>
         </header>
         <section className="console-card console-wide">
           <span className="pill">CONVERSION FUNNEL</span>
-          {Object.entries(funnel).map(([event, count]) => (
-            <div className="event-row" key={event}>
-              <strong>{event}</strong>
-              <span className="signal-score">{count}</span>
+          {funnel?.stages.map((stage) => (
+            <div className="event-row" key={stage.stage}>
+              <strong>{stage.stage}</strong>
+              <span className="muted">
+                {stage.sessions} sessions · drop-off {stage.dropOff}
+              </span>
             </div>
           ))}
-          {Object.keys(funnel).length === 0 && (
+          {(!funnel || funnel.stages.length === 0) && (
             <p className="muted">
               No events have been recorded for this journey yet.
             </p>

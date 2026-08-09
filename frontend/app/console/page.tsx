@@ -21,6 +21,14 @@ type ConsoleData = {
       };
       loyalty: { tier: string; points: number };
       audiences: string[];
+      identityTimeline: {
+        anonymousId: string;
+        customerId: string;
+        linkedAt: string;
+        source: string;
+        correlationId: string;
+      }[];
+      consent: { analytics: boolean; personalization: boolean };
     };
     activeSignals: {
       name: string;
@@ -68,7 +76,24 @@ export default function Console() {
 
   async function loadSessions() {
     const response = await fetch(`${API}/api/console/sessions`);
-    if (response.ok) setSessions(await response.json());
+    if (response.ok) {
+      const values: SessionSummary[] = await response.json();
+      const pinned = [
+        "demo-headline-miami",
+        "demo-identity-stitch",
+        "demo-experiment-000",
+      ];
+      values.sort(
+        (left, right) =>
+          (pinned.indexOf(left.sessionId) < 0
+            ? 99
+            : pinned.indexOf(left.sessionId)) -
+          (pinned.indexOf(right.sessionId) < 0
+            ? 99
+            : pinned.indexOf(right.sessionId)),
+      );
+      setSessions(values);
+    }
   }
 
   async function load(value: string) {
@@ -151,6 +176,21 @@ export default function Console() {
                 <span>Signals derived</span>
                 <span>Decision explained</span>
               </div>
+              <h3>Identity timeline</h3>
+              {data.context.profile.identityTimeline.length ? (
+                data.context.profile.identityTimeline.map((link) => (
+                  <div className="event-row" key={link.correlationId}>
+                    <strong>{link.customerId}</strong>
+                    <span className="muted">
+                      {link.source} · linked{" "}
+                      {new Date(link.linkedAt).toLocaleString()} · correlation{" "}
+                      {link.correlationId}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="muted">No identity link has been recorded.</p>
+              )}
             </section>
             <section className="console-card">
               <span className="pill">RAW EVENTS</span>
@@ -179,25 +219,32 @@ export default function Console() {
             <section className="console-card console-wide">
               <span className="pill">DERIVED SIGNALS</span>
               <h2>Intelligence with provenance</h2>
-              <div className="signal-table">
-                {data.context.activeSignals.map((signal) => (
-                  <article className="signal-row" key={signal.name}>
-                    <div>
-                      <strong>{signal.name}</strong>
-                      <p className="muted">{signal.explanation}</p>
-                      <small>{signal.provenance}</small>
-                    </div>
-                    <div className="signal-score">
-                      <strong>{signal.value}</strong>
-                      <span>confidence {signal.confidence}</span>
-                      <span>
-                        fresh until{" "}
-                        {new Date(signal.expiresAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              {!data.context.profile.consent.personalization ? (
+                <p className="console-error" role="status">
+                  Signals were withheld because personalization consent was not
+                  granted for this journey.
+                </p>
+              ) : (
+                <div className="signal-table">
+                  {data.context.activeSignals.map((signal) => (
+                    <article className="signal-row" key={signal.name}>
+                      <div>
+                        <strong>{signal.name}</strong>
+                        <p className="muted">{signal.explanation}</p>
+                        <small>{signal.provenance}</small>
+                      </div>
+                      <div className="signal-score">
+                        <strong>{signal.value}</strong>
+                        <span>confidence {signal.confidence}</span>
+                        <span>
+                          fresh until{" "}
+                          {new Date(signal.expiresAt).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
             <section className="console-card console-wide decision-card">
               <span className="pill">NEXT-BEST ACTION</span>

@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { notFound } from "next/navigation";
 import { SiteHeader } from "../../../components/SiteHeader";
 import { properties } from "../../../lib/catalog";
-import { track } from "../../../lib/tracker";
+import { decisionCorrelation, track } from "../../../lib/tracker";
 
-export default function BookingPage({ params }: { params: { id: string } }) {
-  const property =
-    properties.find((item) => item.id === params.id) ?? properties[0];
+export default function BookingPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { room?: string };
+}) {
+  const property = properties.find((item) => item.id === params.id);
+  const room = property?.rooms.find((item) => item.id === searchParams.room);
   const [complete, setComplete] = useState(false);
   const [startedAt] = useState(Date.now());
   const leaving = useRef(false);
 
   useEffect(() => {
+    if (!property) return;
     const handleVisibility = () => {
       if (
         document.visibilityState === "hidden" &&
@@ -30,15 +38,23 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
-  }, [complete, property.id]);
+  }, [complete, property]);
+
+  if (!property || !room) {
+    return notFound();
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setComplete(true);
-    void track("BOOKING_COMPLETED", {
-      propertyId: property.id,
-      bookingId: crypto.randomUUID(),
-    });
+    void track(
+      "BOOKING_COMPLETED",
+      {
+        propertyId: property?.id ?? params.id,
+        bookingId: crypto.randomUUID(),
+      },
+      decisionCorrelation() ?? undefined,
+    );
   }
 
   if (complete) {
@@ -71,7 +87,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
             <div className="eyebrow">Complete your stay</div>
             <h1>{property.name}</h1>
             <p>
-              {property.rooms[0].name} · ${property.rooms[0].rate} / night
+              {room.name} · ${room.rate} / night
             </p>
             <form className="booking-form" onSubmit={submit}>
               <label>

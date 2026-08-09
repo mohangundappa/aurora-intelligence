@@ -13,6 +13,12 @@ test("presenter path renders events, explanations, identity, and outcome", async
   await expect(
     page.getByRole("heading", { name: /Stays in Miami/ }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /DESTINATION_DISCOVERY|MIAMI_GETAWAY/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Explore this recommendation" })
+    .click();
   await page.getByLabel("Pool").check();
   await page.getByRole("link", { name: "View property" }).first().click();
   await expect(
@@ -64,6 +70,7 @@ test("presenter path renders events, explanations, identity, and outcome", async
     page.getByText("DERIVED SIGNALS", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".signal-row").first()).toBeVisible();
+  await expect(page.getByText("Identity timeline")).toBeVisible();
   await page.goto("/console/funnel");
   await expect(page.getByText("CONVERSION FUNNEL")).toBeVisible();
   await expect

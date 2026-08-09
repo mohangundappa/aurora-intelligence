@@ -1,9 +1,12 @@
 package com.aurora.experiments;
 
+import java.util.List;
+
 public record ExperimentPerformance(
     String experimentId,
     Variant control,
     Variant treatment,
+    List<Variant> variants,
     boolean insufficientSample,
     String warning) {
   public record Variant(

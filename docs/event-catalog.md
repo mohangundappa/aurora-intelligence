@@ -6,7 +6,9 @@ booking progression, identity continuity, and experiment outcomes. A rendered
 button or page transition is not automatically an event unless it changes a
 customer state or provides evidence needed by a signal. Consent is classified
 per event below; the current ingestion endpoint accepts the envelope and stores
-its consent flags rather than rejecting an analytics-off event.
+its consent flags rather than rejecting an analytics-off event. Signal
+calculators apply personalization consent to each event's evidence; a later
+consented event does not retroactively personalize earlier denied evidence.
 
 ## Canonical envelope
 

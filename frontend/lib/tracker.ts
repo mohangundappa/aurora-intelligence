@@ -21,6 +21,7 @@ type EventPayload = Record<string, string | number | boolean>;
 
 const sessionKey = "aurora.session";
 const anonymousKey = "aurora.anonymous";
+const decisionCorrelationKey = "aurora.decisionCorrelation";
 
 export function sessionId(): string {
   if (typeof window === "undefined") return "";
@@ -43,9 +44,13 @@ function anonymousId(): string {
 export async function track(
   name: EventName,
   payload: EventPayload,
+  correlationId?: string,
 ): Promise<void> {
   if (typeof window === "undefined" || !EVENT_TYPES.includes(name)) return;
-  const correlationId = crypto.randomUUID();
+  const eventCorrelationId =
+    correlationId ||
+    window.sessionStorage.getItem(decisionCorrelationKey) ||
+    crypto.randomUUID();
   const now = new Date().toISOString();
   await fetch(
     `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/v1/events`,
@@ -53,7 +58,7 @@ export async function track(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Correlation-Id": correlationId,
+        "X-Correlation-Id": eventCorrelationId,
       },
       body: JSON.stringify({
         eventId: crypto.randomUUID(),
@@ -65,10 +70,22 @@ export async function track(
         sessionId: sessionId(),
         anonymousId: anonymousId(),
         customerId: window.localStorage.getItem("aurora.customer"),
-        correlationId,
+        correlationId: eventCorrelationId,
         consent: { analytics: true, personalization: true },
         payload,
       }),
     },
   );
+}
+
+export function rememberDecisionCorrelation(correlationId: string): void {
+  if (typeof window !== "undefined") {
+    window.sessionStorage.setItem(decisionCorrelationKey, correlationId);
+  }
+}
+
+export function decisionCorrelation(): string | null {
+  return typeof window === "undefined"
+    ? null
+    : window.sessionStorage.getItem(decisionCorrelationKey);
 }

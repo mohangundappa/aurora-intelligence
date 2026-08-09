@@ -37,8 +37,11 @@ public class SignalEngine {
             (result, row) -> toEvent(result),
             sessionId);
     return registry.definitions().stream()
-        .filter(definition -> eligible(definition, events))
-        .map(definition -> calculate(definition, events))
+        .map(
+            definition ->
+                java.util.Map.entry(definition, evidenceForDefinition(definition, events)))
+        .filter(entry -> eligible(entry.getKey(), entry.getValue()))
+        .map(entry -> calculate(entry.getKey(), entry.getValue()))
         .toList();
   }
 
@@ -51,8 +54,15 @@ public class SignalEngine {
   }
 
   private boolean eligible(SignalDefinition definition, List<EventEnvelope> events) {
-    return !definition.consentRequired()
-        || events.stream().anyMatch(event -> event.consent().personalization());
+    return !events.isEmpty()
+        && (!definition.consentRequired()
+            || events.stream().anyMatch(event -> event.consent().personalization()));
+  }
+
+  public List<EventEnvelope> evidenceForDefinition(
+      SignalDefinition definition, List<EventEnvelope> events) {
+    if (!definition.consentRequired()) return events;
+    return events.stream().filter(event -> event.consent().personalization()).toList();
   }
 
   private SignalSnapshot calculate(SignalDefinition definition, List<EventEnvelope> events) {

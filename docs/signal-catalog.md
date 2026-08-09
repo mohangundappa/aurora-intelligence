@@ -6,11 +6,11 @@ snapshot, confidence, structured attributes, and explanation. Policy consumes
 attributes/value/confidence/freshness; it never parses explanation text.
 
 Unless stated otherwise, signal calculations read persisted events for one
-session, require personalization consent (`SignalEngine.eligible` requires at
-least one event with personalization consent), and persist to
+session, require personalization consent, and persist to
 `derived_signals`. Values are bounded to 0–100. The common confidence formula
 is `min(0.99, 0.55 + min(0.4, evidenceCount*0.1))`; zero evidence is 0.55.
-Expiry is parsed from each YAML duration.
+Expiry is parsed from each YAML duration. `SignalEngine` filters evidence per
+event, so calculators receive only events whose `personalization` flag is true.
 
 | Signal | Tier | Lookback | Freshness | Expiry | Owner |
 |---|---|---:|---:|---:|---|

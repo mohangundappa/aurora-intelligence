@@ -136,8 +136,8 @@ public class EventRepository {
         "decisionLatencyMs",
         jdbc.queryForObject(
             """
-        select coalesce(avg(greatest(0, extract(epoch from (d.created_at - r.received_time)) * 1000)), 0)
-        from decisions d join raw_events r on r.correlation_id=d.correlation_id
+        select coalesce(avg(greatest(0, extract(epoch from (r.received_time - r.event_time)) * 1000)), 0)
+        from raw_events r join decisions d on r.correlation_id=d.correlation_id
         """,
             Double.class));
     quality.put(
@@ -150,15 +150,15 @@ public class EventRepository {
             Double.class));
     quality.put(
         "signalFreshnessDistribution",
-        jdbc.query(
-            """
-        select name, coalesce(avg(extract(epoch from (expires_at - computed_at)) / 60), 0) freshness_minutes
-        from derived_signals group by name order by name
-        """,
-            (result, row) ->
-                Map.of(
-                    "signal", result.getString("name"),
-                    "freshnessMinutes", result.getDouble("freshness_minutes"))));
+        jdbc
+            .query(
+                "select distinct on (name) name, provenance from derived_signals order by name, computed_at desc",
+                (result, row) ->
+                    Map.of(
+                        "signal", result.getString("name"),
+                        "freshnessMinutes", freshnessMinutes(result.getString("provenance"))))
+            .stream()
+            .toList());
     return quality;
   }
 
@@ -179,20 +179,14 @@ public class EventRepository {
   public Funnel funnel(String sessionId) {
     String filter = sessionId == null ? "" : " where session_id = ?";
     List<Object> args = sessionId == null ? List.of() : List.of(sessionId);
-    Map<String, Long> eventCounts =
-        jdbc
-            .queryForList(
-                "select event_name, count(distinct session_id) total from raw_events"
-                    + filter
-                    + " group by event_name",
-                args.toArray())
-            .stream()
-            .collect(
-                java.util.stream.Collectors.toMap(
-                    row -> (String) row.get("event_name"),
-                    row -> ((Number) row.get("total")).longValue(),
-                    Long::sum,
-                    java.util.LinkedHashMap::new));
+    Map<String, java.util.Set<String>> eventsBySession = new java.util.HashMap<>();
+    jdbc.queryForList("select session_id,event_name from raw_events" + filter, args.toArray())
+        .forEach(
+            row ->
+                eventsBySession
+                    .computeIfAbsent(
+                        (String) row.get("session_id"), ignored -> new java.util.HashSet<>())
+                    .add((String) row.get("event_name")));
     List<String> stages =
         List.of(
             "DESTINATION_SEARCHED",
@@ -203,12 +197,29 @@ public class EventRepository {
             "BOOKING_COMPLETED");
     List<FunnelStage> result = new java.util.ArrayList<>();
     long previous = 0;
+    java.util.List<String> priorStages = new java.util.ArrayList<>();
     for (String stage : stages) {
-      long count = eventCounts.getOrDefault(stage, 0L);
-      result.add(new FunnelStage(stage, count, previous == 0 ? 0 : Math.max(0, previous - count)));
+      priorStages.add(stage);
+      long count =
+          eventsBySession.values().stream()
+              .filter(sessionEvents -> sessionEvents.containsAll(priorStages))
+              .count();
+      result.add(new FunnelStage(stage, count, previous == 0 ? 0 : previous - count));
       previous = count;
     }
     return new Funnel(sessionId, result);
+  }
+
+  private double freshnessMinutes(String provenance) {
+    java.util.regex.Matcher matcher =
+        java.util.regex.Pattern.compile("freshness window (\\d+)([mhd])").matcher(provenance);
+    if (!matcher.find()) return 0;
+    long amount = Long.parseLong(matcher.group(1));
+    return switch (matcher.group(2)) {
+      case "h" -> amount * 60d;
+      case "d" -> amount * 1440d;
+      default -> amount;
+    };
   }
 
   public record Funnel(String sessionId, List<FunnelStage> stages) {}

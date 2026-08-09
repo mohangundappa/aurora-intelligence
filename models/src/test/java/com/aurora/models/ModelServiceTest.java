@@ -1,11 +1,14 @@
 package com.aurora.models;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 class ModelServiceTest {
   @Test
@@ -13,13 +16,14 @@ class ModelServiceTest {
     ModelRepository repository = mock(ModelRepository.class);
     when(repository.findDeployed("booking-intent"))
         .thenReturn(
-            new ModelVersion(
-                "booking-intent",
-                "3.0",
-                "DEPLOYED",
-                List.of("propertyViewed", "bookingStarted"),
-                Map.of("propertyViewed", 10d, "bookingStarted", 20d),
-                5d));
+            Optional.of(
+                new ModelVersion(
+                    "booking-intent",
+                    "3.0",
+                    "DEPLOYED",
+                    List.of("propertyViewed", "bookingStarted"),
+                    Map.of("propertyViewed", 10d, "bookingStarted", 20d),
+                    5d)));
 
     Prediction prediction =
         new ModelService(repository)
@@ -45,5 +49,15 @@ class ModelServiceTest {
     verify(repository).transition("booking-intent", "2.0", "APPROVED", "tester");
     verify(repository).transition("booking-intent", "2.0", "DEPLOYED", "tester");
     verify(repository).transition("booking-intent", "1.0", "DEPLOYED", "tester");
+  }
+
+  @Test
+  void missingDeploymentIsAHandledServiceError() {
+    ModelRepository repository = mock(ModelRepository.class);
+    when(repository.findDeployed("booking-intent")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> new ModelService(repository).predict("booking-intent", Map.of()))
+        .isInstanceOf(ResponseStatusException.class)
+        .hasMessageContaining("No deployed model version");
   }
 }

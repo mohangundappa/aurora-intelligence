@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -20,11 +21,14 @@ public class ModelRepository {
     this.mapper = mapper;
   }
 
-  public ModelVersion findDeployed(String name) {
-    return jdbc.queryForObject(
-        "select model_name,version,status,features,weights,bias from model_versions where model_name=? and status='DEPLOYED' order by deployed_at desc limit 1",
-        (result, row) -> toModel(result),
-        name);
+  public Optional<ModelVersion> findDeployed(String name) {
+    return jdbc
+        .query(
+            "select model_name,version,status,features,weights,bias from model_versions where model_name=? and status='DEPLOYED' order by deployed_at desc limit 1",
+            (result, row) -> toModel(result),
+            name)
+        .stream()
+        .findFirst();
   }
 
   public List<ModelVersion> findAll(String name) {
@@ -35,6 +39,39 @@ public class ModelRepository {
   }
 
   public void transition(String name, String version, String status, String actor) {
+    ModelVersion current =
+        findAll(name).stream()
+            .filter(model -> model.version().equals(version))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Unknown model version: " + name + " " + version));
+    java.util.Set<String> legal =
+        switch (current.status()) {
+          case "TESTED" -> java.util.Set.of("APPROVED");
+          case "APPROVED" -> java.util.Set.of("TESTED", "DEPLOYED");
+          case "DEPLOYED" -> java.util.Set.of("APPROVED");
+          default -> java.util.Set.of();
+        };
+    if (!legal.contains(status)) {
+      throw new org.springframework.web.server.ResponseStatusException(
+          org.springframework.http.HttpStatus.CONFLICT,
+          "Illegal model lifecycle transition: " + current.status() + " -> " + status);
+    }
+    if ("DEPLOYED".equals(current.status()) && "APPROVED".equals(status)) {
+      Integer deployed =
+          jdbc.queryForObject(
+              "select count(*) from model_versions where model_name=? and status='DEPLOYED'",
+              Integer.class,
+              name);
+      if (deployed != null && deployed < 2) {
+        throw new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.CONFLICT,
+            "Cannot approve the only deployed model version; deploy another version first");
+      }
+    }
     String previous =
         jdbc
             .query(

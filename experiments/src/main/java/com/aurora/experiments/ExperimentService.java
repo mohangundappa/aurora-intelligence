@@ -15,10 +15,21 @@ public class ExperimentService {
   }
 
   public ExperimentPerformance performance(String experimentId) {
+    java.util.List<ExperimentPerformance.Variant> variants =
+        ExperimentDefinitions.variants(experimentId).stream()
+            .map(variant -> variant(experimentId, variant))
+            .toList();
     return new ExperimentPerformance(
         experimentId,
-        variant(experimentId, "control"),
-        variant(experimentId, "treatment"),
+        variants.stream()
+            .filter(variant -> "control".equals(variant.name()))
+            .findFirst()
+            .orElse(null),
+        variants.stream()
+            .filter(variant -> "treatment".equals(variant.name()))
+            .findFirst()
+            .orElse(null),
+        variants,
         insufficient(experimentId),
         "At least 30 exposed subjects per variant are required before lift or significance is presented.");
   }
@@ -89,12 +100,19 @@ public class ExperimentService {
   }
 
   private boolean insufficient(String experimentId) {
-    Integer minimum =
+    return ExperimentDefinitions.variants(experimentId).stream()
+        .mapToInt(variant -> countExposures(experimentId, variant))
+        .anyMatch(count -> count < 30);
+  }
+
+  private int countExposures(String experimentId, String variant) {
+    Integer count =
         jdbc.queryForObject(
-            "select coalesce(min(count),0) from (select count(*) from experiment_exposures where experiment_id=? group by variant) groups(count)",
+            "select count(*) from experiment_exposures where experiment_id=? and variant=?",
             Integer.class,
-            experimentId);
-    return minimum == null || minimum < 30;
+            experimentId,
+            variant);
+    return count == null ? 0 : count;
   }
 
   private boolean isOutcome(String eventName) {

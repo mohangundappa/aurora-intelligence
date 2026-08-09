@@ -2,11 +2,13 @@ package com.aurora.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.aurora.common.SignalDefinition;
 import com.aurora.context.ContextCache;
 import com.aurora.context.ContextService;
 import com.aurora.ingest.EventRepository;
 import com.aurora.ingest.IngestService;
 import com.aurora.signals.SignalConsumer;
+import com.aurora.signals.SignalEngine;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -42,6 +44,7 @@ class PostgresIntegrationTest {
   @Autowired IngestService ingest;
   @Autowired EventRepository events;
   @Autowired SignalConsumer consumer;
+  @Autowired SignalEngine signalEngine;
   @Autowired ContextService context;
   @Autowired ContextCache cache;
   @Autowired ObjectMapper mapper;
@@ -88,7 +91,96 @@ class PostgresIntegrationTest {
     assertThat(replayed).isEqualTo(2);
   }
 
+  @Test
+  void personalizationEvidenceIsExcludedPerEventAndSafeDefaultIsShown() throws Exception {
+    String session = UUID.randomUUID().toString();
+    JsonNode denied =
+        event(
+            "DESTINATION_SEARCHED",
+            session,
+            "anon-consent-it",
+            "{\"destination\":\"Miami\"}",
+            false);
+    assertThat(ingest.ingest(denied).accepted()).isEqualTo(1);
+    consumer.consume(mapper.writeValueAsString(events.findBySession(session).get(0)));
+    cache.evict(session);
+
+    var context = this.context.forSession(session);
+    assertThat(context.activeSignals()).isEmpty();
+    assertThat(context.recommendedAction().experience()).isEqualTo("STANDARD_WELCOME");
+    assertThat(context.recommendedAction().reasonCodes()).contains("CONSENT_NOT_GRANTED");
+  }
+
+  @Test
+  void nonConsentRequiredDefinitionStillReceivesDeniedEvidence() throws Exception {
+    String session = UUID.randomUUID().toString();
+    ingest.ingest(
+        event(
+            "DESTINATION_SEARCHED",
+            session,
+            "anon-unrestricted",
+            "{\"destination\":\"Miami\"}",
+            false));
+    SignalDefinition definition =
+        new SignalDefinition(
+            "test",
+            "1.0",
+            java.util.List.of("DESTINATION_SEARCHED"),
+            SignalDefinition.CalculationType.AGGREGATION,
+            "real-time",
+            "30d",
+            "0-100",
+            "standard",
+            "15m",
+            "24h",
+            false,
+            "test",
+            SignalDefinition.LifecycleStatus.DEPLOYED,
+            "test");
+
+    assertThat(signalEngine.evidenceForDefinition(definition, events.findBySession(session)))
+        .hasSize(1);
+  }
+
+  @Test
+  void aggregateFunnelOnlyCountsSessionsThatPassedEarlierStages() throws Exception {
+    String complete = UUID.randomUUID().toString();
+    String started = UUID.randomUUID().toString();
+    String rateOnly = UUID.randomUUID().toString();
+    var batch = mapper.createArrayNode();
+    for (String stage :
+        new String[] {
+          "DESTINATION_SEARCHED",
+          "PROPERTY_VIEWED",
+          "ROOM_VIEWED",
+          "RATE_VIEWED",
+          "BOOKING_STARTED",
+          "BOOKING_COMPLETED"
+        }) {
+      batch.add(funnelEvent(stage, complete, "complete"));
+    }
+    for (String stage :
+        new String[] {"DESTINATION_SEARCHED", "PROPERTY_VIEWED", "BOOKING_STARTED"}) {
+      batch.add(funnelEvent(stage, started, "started"));
+    }
+    for (String stage :
+        new String[] {"DESTINATION_SEARCHED", "PROPERTY_VIEWED", "ROOM_VIEWED", "RATE_VIEWED"}) {
+      batch.add(funnelEvent(stage, rateOnly, "rate"));
+    }
+    ingest.ingest(batch);
+
+    assertThat(events.funnel(null).stages())
+        .extracting(EventRepository.FunnelStage::sessions)
+        .containsExactly(3L, 3L, 2L, 2L, 1L, 1L);
+  }
+
   private JsonNode event(String name, String session, String anonymous, String payload)
+      throws Exception {
+    return event(name, session, anonymous, payload, true);
+  }
+
+  private JsonNode event(
+      String name, String session, String anonymous, String payload, boolean personalization)
       throws Exception {
     Instant now = Instant.now();
     return mapper.readTree(
@@ -103,11 +195,37 @@ class PostgresIntegrationTest {
           "sessionId": "%s",
           "anonymousId": "%s",
           "correlationId": "%s",
-          "consent": {"analytics": true, "personalization": true},
+          "consent": {"analytics": true, "personalization": %s},
           "payload": %s
         }
         """
             .formatted(
-                UUID.randomUUID(), name, now, now, session, anonymous, UUID.randomUUID(), payload));
+                UUID.randomUUID(),
+                name,
+                now,
+                now,
+                session,
+                anonymous,
+                UUID.randomUUID(),
+                personalization,
+                payload));
+  }
+
+  private JsonNode funnelEvent(String name, String session, String anonymous) throws Exception {
+    String payload =
+        switch (name) {
+          case "DESTINATION_SEARCHED" -> "{\"destination\":\"Miami\"}";
+          case "PROPERTY_VIEWED" -> "{\"propertyId\":\"aurora-miami\"}";
+          case "ROOM_VIEWED" -> "{\"propertyId\":\"aurora-miami\",\"roomId\":\"family-suite\"}";
+          case "RATE_VIEWED" ->
+              "{\"propertyId\":\"aurora-miami\",\"roomId\":\"family-suite\",\"rate\":389}";
+          case "BOOKING_STARTED" -> "{\"propertyId\":\"aurora-miami\"}";
+          case "BOOKING_COMPLETED" ->
+              "{\"propertyId\":\"aurora-miami\",\"bookingId\":\"booking-"
+                  + session.substring(0, 8)
+                  + "\"}";
+          default -> "{}";
+        };
+    return event(name, session, anonymous, payload);
   }
 }

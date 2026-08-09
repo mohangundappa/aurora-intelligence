@@ -25,6 +25,7 @@ flowchart TB
   end
 
   subgraph intel["Customer intelligence"]
+    consumer["SignalConsumer<br/>Kafka listener and router"]
     cdp["CdpAdapter → SimulatedCdpAdapter"]
     profiles[("cdp_profiles")]
     stitch["IdentityStitcher<br/>only on CUSTOMER_IDENTIFIED"]
@@ -50,10 +51,13 @@ flowchart TB
   behavior --> tracker --> api --> validate
   validate -->|"valid"| raw
   validate -->|"invalid"| quarantine
-  raw --> topic --> engine
+  raw --> topic --> consumer
+  consumer -->|"CUSTOMER_IDENTIFIED"| stitch
+  consumer -->|"other events"| cdp
+  consumer --> engine
   raw -.->|"POST /api/v1/events/replay"| engine
-  raw --> cdp --> profiles
-  raw --> stitch --> links
+  cdp --> profiles
+  stitch --> links
   profiles --> context
   links --> context
   engine --> signals --> context
@@ -97,6 +101,7 @@ flowchart LR
   defn{"per definition:<br/>consentRequired?"}
   computed["Signal computed"]
   withheld["Signal withheld<br/>console shows why"]
+  personalized["DecisionEngine<br/>FAMILY_RESORT_RECOMMENDATION"]
   safe["DecisionEngine<br/>STANDARD_WELCOME<br/>CONSENT_NOT_GRANTED · SAFE_DEFAULT"]
 
   events --> split
@@ -108,7 +113,7 @@ flowchart LR
   defn -->|"false → all evidence"| computed
   defn -->|"no eligible evidence"| withheld
   withheld --> safe
-  computed --> safe
+  computed --> personalized
 ```
 
 An event whose consent was denied is still collected and still auditable — it simply cannot
@@ -127,6 +132,7 @@ sequenceDiagram
   participant D as DecisionEngine
   participant X as ExperimentService
   participant M as Measurement
+  participant C as Console/API
 
   V->>S: Behavior (search Miami, family party, pool filter)
   S->>D: GET /api/sessions/{sessionId}/decision
@@ -139,7 +145,7 @@ sequenceDiagram
   S->>M: OFFER_CLICKED / BOOKING_STARTED / BOOKING_COMPLETED (same correlationId)
   Note over M: outcome joined to the decision that caused it
   M-->>M: Conversion by variant, absolute + relative lift
-  M-->>V: Withheld until 30 exposed subjects per arm
+  M-->>C: Lift presented or withheld<br/>until 30 exposed subjects per arm
 ```
 
 The stable subject key stays the anonymous ID across identity stitching, so a visitor who logs

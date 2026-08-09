@@ -35,7 +35,11 @@ public class ContextController {
     if (!consent) {
       return new com.aurora.common.Decision(
           "STANDARD_WELCOME",
+          "STANDARD_WELCOME",
+          "web",
           List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
+          "1.0",
+          null,
           "Personalization is disabled, so the standard welcome experience is shown.",
           sessionId,
           customerContext.recentBehaviors().stream()

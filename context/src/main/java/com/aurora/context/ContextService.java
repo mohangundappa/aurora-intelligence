@@ -17,23 +17,31 @@ public class ContextService {
   private final SignalEngine signals;
   private final SimulatedCdpAdapter cdp;
   private final DecisionEngine decisions;
+  private final ContextCache cache;
 
   public ContextService(
       EventRepository events,
       SignalEngine signals,
       SimulatedCdpAdapter cdp,
-      DecisionEngine decisions) {
+      DecisionEngine decisions,
+      ContextCache cache) {
     this.events = events;
     this.signals = signals;
     this.cdp = cdp;
     this.decisions = decisions;
+    this.cache = cache;
   }
 
   public CustomerContext forSession(String sessionId) {
+    CustomerContext cached = cache.get(sessionId);
+    if (cached != null) return cached;
     List<EventEnvelope> recent = events.findBySession(sessionId);
     if (recent.isEmpty()) {
-      return new CustomerContext(
-          cdp.profile("unknown"), sessionId, List.of(), List.of(), "Discovery", false, null);
+      CustomerContext context =
+          new CustomerContext(
+              cdp.profile("unknown"), sessionId, List.of(), List.of(), "Discovery", false, null);
+      cache.put(sessionId, context);
+      return context;
     }
     String anonymousId = recent.get(0).anonymousId();
     CdpProfile profile = cdp.profile(anonymousId);
@@ -47,25 +55,27 @@ public class ContextService {
     Decision decision =
         decisions.decide(
             sessionId,
-            activeSignals.stream()
-                .filter(signal -> !"journey-stage".equals(signal.name()))
-                .findFirst()
-                .orElse(null),
+            profile,
+            activeSignals,
             eligible,
             recent.get(recent.size() - 1).correlationId());
-    return new CustomerContext(
-        profile,
-        sessionId,
-        recent,
-        activeSignals,
-        stage == null
-            ? "Discovery"
-            : stage
-                .explanation()
-                .replace("Journey stage is derived from the furthest observed funnel event: ", "")
-                .replace(".", ""),
-        eligible,
-        decision);
+    CustomerContext context =
+        new CustomerContext(
+            profile,
+            sessionId,
+            recent,
+            activeSignals,
+            stage == null
+                ? "Discovery"
+                : stage
+                    .explanation()
+                    .replace(
+                        "Journey stage is derived from the furthest observed funnel event: ", "")
+                    .replace(".", ""),
+            eligible,
+            decision);
+    cache.put(sessionId, context);
+    return context;
   }
 
   public CustomerContext forCustomer(String customerId) {
@@ -82,5 +92,13 @@ public class ContextService {
 
   public List<com.aurora.common.SignalDefinition> definitions() {
     return signals.registryDefinitions();
+  }
+
+  public List<EventRepository.SessionSummary> sessions() {
+    return events.recentSessions();
+  }
+
+  public java.util.Map<String, Object> qualityStats() {
+    return events.qualityStats();
   }
 }

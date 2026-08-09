@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -90,6 +91,44 @@ public class EventRepository {
         """,
         (result, row) -> toEnvelope(result),
         customerId);
+  }
+
+  public List<SessionSummary> recentSessions() {
+    return jdbc.query(
+        """
+        select r.session_id, max(r.event_time) last_activity,
+               max(r.payload->>'destination') filter (where r.event_name = 'DESTINATION_SEARCHED') destination,
+               coalesce(max(r.customer_id), max(i.customer_id)) customer_id, max(r.anonymous_id) anonymous_id
+        from raw_events r left join identity_links i on i.anonymous_id = r.anonymous_id
+        group by r.session_id order by last_activity desc limit 50
+        """,
+        (result, row) ->
+            new SessionSummary(
+                result.getString("session_id"),
+                result.getString("destination"),
+                result.getString("customer_id"),
+                result.getString("anonymous_id"),
+                result.getTimestamp("last_activity").toInstant()));
+  }
+
+  public record SessionSummary(
+      String sessionId,
+      String destination,
+      String customerId,
+      String anonymousId,
+      java.time.Instant lastActivity) {}
+
+  public Map<String, Object> qualityStats() {
+    Integer total = jdbc.queryForObject("select count(*) from raw_events", Integer.class);
+    Integer quarantined =
+        jdbc.queryForObject("select count(*) from quarantined_events", Integer.class);
+    return Map.of(
+        "ingestCount", total == null ? 0 : total,
+        "quarantineCount", quarantined == null ? 0 : quarantined,
+        "quarantineRate",
+            total == null || total == 0
+                ? 0
+                : (double) (quarantined == null ? 0 : quarantined) / total);
   }
 
   private EventEnvelope toEnvelope(java.sql.ResultSet result) {

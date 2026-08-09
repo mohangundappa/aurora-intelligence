@@ -40,11 +40,20 @@ type ConsoleData = {
   };
 };
 
+type SessionSummary = {
+  sessionId: string;
+  destination: string | null;
+  customerId: string | null;
+  anonymousId: string;
+  lastActivity: string;
+};
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
 export default function Console() {
   const [selectedSession, setSelectedSession] = useState("");
   const [data, setData] = useState<ConsoleData | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -54,7 +63,13 @@ export default function Console() {
     const current = querySession || sessionId();
     setSelectedSession(current);
     void load(current);
+    void loadSessions();
   }, []);
+
+  async function loadSessions() {
+    const response = await fetch(`${API}/api/console/sessions`);
+    if (response.ok) setSessions(await response.json());
+  }
 
   async function load(value: string) {
     if (!value) return;
@@ -91,6 +106,13 @@ export default function Console() {
               }}
             >
               <option value={sessionId()}>This browser session</option>
+              {sessions.map((session) => (
+                <option value={session.sessionId} key={session.sessionId}>
+                  {session.customerId || "Anonymous"} ·{" "}
+                  {session.destination || "Undirected journey"} ·{" "}
+                  {new Date(session.lastActivity).toLocaleTimeString()}
+                </option>
+              ))}
             </select>
             <Link href="/">Open Aurora site →</Link>
           </div>

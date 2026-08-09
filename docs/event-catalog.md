@@ -4,7 +4,9 @@ Aurora captures meaningful journey milestones rather than every DOM click. The
 catalog supports destination intent, party composition, amenity preference,
 booking progression, identity continuity, and experiment outcomes. A rendered
 button or page transition is not automatically an event unless it changes a
-customer state or provides evidence needed by a signal.
+customer state or provides evidence needed by a signal. Consent is classified
+per event below; the current ingestion endpoint accepts the envelope and stores
+its consent flags rather than rejecting an analytics-off event.
 
 ## Canonical envelope
 

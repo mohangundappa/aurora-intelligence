@@ -1,0 +1,14 @@
+name: booking-intent
+version: "1.0"
+inputs: [PROPERTY_VIEWED, ROOM_VIEWED, RATE_VIEWED, BOOKING_STARTED]
+calculationType: MODEL
+tier: real-time
+lookback: 30d
+outputRange: 0-100
+confidence: baseline-model
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "An explainable baseline combines funnel depth and recency."
+lifecycleStatus: DEPLOYED
+owner: Customer Intelligence

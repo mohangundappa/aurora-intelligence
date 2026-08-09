@@ -25,7 +25,9 @@ public record SignalDefinition(
 
   public enum LifecycleStatus {
     DRAFT,
-    ACTIVE,
+    TESTED,
+    APPROVED,
+    DEPLOYED,
     RETIRED
   }
 }

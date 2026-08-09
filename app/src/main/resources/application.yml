@@ -12,6 +12,10 @@ spring:
     port: ${REDIS_PORT:6379}
     connect-timeout: 500ms
     timeout: 500ms
+  kafka:
+    bootstrap-servers: ${REDPANDA_BROKERS:redpanda:9092}
+    listener:
+      missing-topics-fatal: false
 management:
   endpoints.web.exposure.include: health,info,metrics
   endpoint.health.show-details: always

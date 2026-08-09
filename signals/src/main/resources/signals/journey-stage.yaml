@@ -1,0 +1,14 @@
+name: journey-stage
+version: "1.0"
+inputs: [PAGE_VIEWED, PROPERTY_VIEWED, BOOKING_STARTED, BOOKING_ABANDONED, BOOKING_COMPLETED]
+calculationType: RULE
+tier: real-time
+lookback: 90d
+outputRange: Discovery|Consideration|Booking|Abandoned|Converted
+confidence: event-derived
+freshness: 15m
+expiry: 24h
+consentRequired: true
+explanationTemplate: "The stage is the furthest observed booking-funnel event."
+lifecycleStatus: DEPLOYED
+owner: Customer Intelligence

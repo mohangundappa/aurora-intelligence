@@ -9,7 +9,9 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 import org.yaml.snakeyaml.Yaml;
 
 @Component
@@ -62,7 +64,8 @@ public class ExperimentRegistry {
     return definitions.stream()
         .filter(definition -> definition.id().equals(id))
         .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException("Unknown experiment " + id));
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown experiment " + id));
   }
 
   @SuppressWarnings("unchecked")

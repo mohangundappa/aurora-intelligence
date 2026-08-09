@@ -4,6 +4,7 @@ import com.aurora.common.SignalSnapshot;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
@@ -58,6 +59,10 @@ public class DecisionPolicy {
 
   public String channel() {
     return channel;
+  }
+
+  public List<String> experimentIds() {
+    return rules.stream().map(Rule::experimentId).filter(Objects::nonNull).distinct().toList();
   }
 
   public DecisionPolicyResult evaluate(List<SignalSnapshot> signals) {

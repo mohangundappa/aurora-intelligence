@@ -136,7 +136,7 @@ public class EventRepository {
         "decisionLatencyMs",
         jdbc.queryForObject(
             """
-        select coalesce(avg(extract(epoch from (d.created_at - r.received_time)) * 1000), 0)
+        select coalesce(avg(greatest(0, extract(epoch from (d.created_at - r.received_time)) * 1000)), 0)
         from decisions d join raw_events r on r.correlation_id=d.correlation_id
         """,
             Double.class));
@@ -144,7 +144,7 @@ public class EventRepository {
         "consumerLagMs",
         jdbc.queryForObject(
             """
-        select coalesce(extract(epoch from (max(r.received_time) - max(s.computed_at))) * 1000, 0)
+        select coalesce(greatest(0, extract(epoch from (max(r.received_time) - max(s.computed_at))) * 1000), 0)
         from raw_events r cross join derived_signals s
         """,
             Double.class));

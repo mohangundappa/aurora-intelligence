@@ -205,7 +205,7 @@ public class EventRepository {
     long previous = 0;
     for (String stage : stages) {
       long count = eventCounts.getOrDefault(stage, 0L);
-      result.add(new FunnelStage(stage, count, previous == 0 ? 0 : previous - count));
+      result.add(new FunnelStage(stage, count, previous == 0 ? 0 : Math.max(0, previous - count)));
       previous = count;
     }
     return new Funnel(sessionId, result);

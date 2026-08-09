@@ -26,7 +26,7 @@ base = datetime.datetime.fromisoformat(os.environ["SEED_INSTANT"].replace("Z", "
 def event(event_id, name, session, anonymous, correlation, offset, payload, customer=None):
     instant = (base + datetime.timedelta(minutes=offset)).isoformat().replace("+00:00", "Z")
     return {
-        "eventId": event_id,
+        "eventId": str(uuid.uuid5(uuid.NAMESPACE_URL, "aurora-demo:" + event_id)),
         "eventName": name,
         "eventTime": instant,
         "receivedTime": instant,
@@ -76,7 +76,7 @@ ingest([
     event("stitch-login", "CUSTOMER_IDENTIFIED", stitch, stitch_anon, stitch_corr, 2, {"customerId": "demo-customer-100"}, "demo-customer-100"),
 ])
 
-for index in range(70):
+for index in range(100):
     session = f"demo-experiment-{index:03d}"
     anonymous = f"demo-experiment-anon-{index:03d}"
     correlation = f"demo-experiment-correlation-{index:03d}"
@@ -93,7 +93,7 @@ for index in range(70):
     ])
 
 # Trigger decision creation/exposure persistence after the consumer has caught up.
-for index in range(70):
+for index in range(100):
     session = f"demo-experiment-{index:03d}"
     for attempt in range(20):
         response = subprocess.run(
@@ -106,7 +106,7 @@ for index in range(70):
 
 # Seed outcomes after exposures exist. One half converts; all outcomes use
 # the same correlation ID as the decision, making the join explicit.
-for index in range(70):
+for index in range(100):
     session = f"demo-experiment-{index:03d}"
     anonymous = f"demo-experiment-anon-{index:03d}"
     correlation = f"demo-experiment-correlation-{index:03d}"
@@ -120,5 +120,5 @@ for index in range(70):
 print("Seeded deterministic Aurora demo scenarios.")
 print("Headline session:", headline)
 print("Identity-stitch session:", stitch)
-print("Experiment sessions: demo-experiment-000 through demo-experiment-069")
+print("Experiment sessions: demo-experiment-000 through demo-experiment-099")
 PY

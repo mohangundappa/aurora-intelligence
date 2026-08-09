@@ -22,7 +22,7 @@ fixed and synthetic; no wall-clock values are required.
    seeded volume if demonstrating the insufficient-data state. The UI must
    withhold conversion claims below 30 subjects per variant.
 7. **10:00–12:00 — populated experiment.** After the seed completes, show
-   70 synthetic sessions, exposure/outcome joins by correlation ID, and the
+   100 synthetic sessions, exposure/outcome joins by correlation ID, and the
    populated control/treatment comparison. Label it synthetic demo volume.
 8. **12:00–13:00 — funnel and operations.** Open `/console/funnel` for
    aggregate stage counts or add `?session=demo-headline-miami`. Open

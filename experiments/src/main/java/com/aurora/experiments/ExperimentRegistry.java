@@ -62,7 +62,10 @@ public class ExperimentRegistry {
     return definitions.stream()
         .filter(definition -> definition.id().equals(id))
         .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException("Unknown experiment " + id));
+        .orElseThrow(
+            () ->
+                new UnknownExperimentException(
+                    id, definitions.stream().map(ExperimentDefinition::id).toList()));
   }
 
   @SuppressWarnings("unchecked")

@@ -11,7 +11,7 @@ export type Property = {
 
 export const properties: Property[] = [
   {
-    id: "azure-grove-miami",
+    id: "aurora-miami",
     name: "Azure Grove Miami",
     destination: "Miami",
     type: "resort",
@@ -21,16 +21,16 @@ export const properties: Property[] = [
     fromRate: 289,
     rooms: [
       {
+        id: "family-suite",
+        name: "Family suite",
+        description: "Two sleeping zones and room to gather.",
+        rate: 389,
+      },
+      {
         id: "garden-suite",
         name: "Garden suite",
         description: "A spacious suite with a private terrace.",
         rate: 289,
-      },
-      {
-        id: "family-loft",
-        name: "Family loft",
-        description: "Two sleeping zones and room to gather.",
-        rate: 389,
       },
     ],
   },

@@ -117,7 +117,10 @@ Analytics consent is stored with the raw event. Ingestion currently persists
 the envelope regardless of personalization consent so analytics/quarantine/
 replay remain observable. Personalization consent gates policy personalization:
 absent consent returns `STANDARD_WELCOME`, `CONSENT_NOT_GRANTED`, and
-`SAFE_DEFAULT`, and does not create an experiment exposure.
+`SAFE_DEFAULT`, and does not create an experiment exposure. Signal calculation
+filters evidence event by event: an event with `personalization=false` never
+contributes to a personalized signal, even if a later event enables
+personalization. Later consent does not retroactively change earlier evidence.
 
 Customer ID, loyalty, consent, attributes, and identity links live in the
 simulator's PostgreSQL tables. They are PII-like demo data. The repository does

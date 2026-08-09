@@ -108,6 +108,38 @@ class PostgresIntegrationTest {
     assertThat(context.recommendedAction().reasonCodes()).contains("CONSENT_NOT_GRANTED");
   }
 
+  @Test
+  void aggregateFunnelOnlyCountsSessionsThatPassedEarlierStages() throws Exception {
+    String complete = UUID.randomUUID().toString();
+    String started = UUID.randomUUID().toString();
+    String rateOnly = UUID.randomUUID().toString();
+    var batch = mapper.createArrayNode();
+    for (String stage :
+        new String[] {
+          "DESTINATION_SEARCHED",
+          "PROPERTY_VIEWED",
+          "ROOM_VIEWED",
+          "RATE_VIEWED",
+          "BOOKING_STARTED",
+          "BOOKING_COMPLETED"
+        }) {
+      batch.add(funnelEvent(stage, complete, "complete"));
+    }
+    for (String stage :
+        new String[] {"DESTINATION_SEARCHED", "PROPERTY_VIEWED", "BOOKING_STARTED"}) {
+      batch.add(funnelEvent(stage, started, "started"));
+    }
+    for (String stage :
+        new String[] {"DESTINATION_SEARCHED", "PROPERTY_VIEWED", "ROOM_VIEWED", "RATE_VIEWED"}) {
+      batch.add(funnelEvent(stage, rateOnly, "rate"));
+    }
+    ingest.ingest(batch);
+
+    assertThat(events.funnel(null).stages())
+        .extracting(EventRepository.FunnelStage::sessions)
+        .containsExactly(3L, 3L, 2L, 2L, 1L, 1L);
+  }
+
   private JsonNode event(String name, String session, String anonymous, String payload)
       throws Exception {
     return event(name, session, anonymous, payload, true);
@@ -143,5 +175,23 @@ class PostgresIntegrationTest {
                 UUID.randomUUID(),
                 personalization,
                 payload));
+  }
+
+  private JsonNode funnelEvent(String name, String session, String anonymous) throws Exception {
+    String payload =
+        switch (name) {
+          case "DESTINATION_SEARCHED" -> "{\"destination\":\"Miami\"}";
+          case "PROPERTY_VIEWED" -> "{\"propertyId\":\"aurora-miami\"}";
+          case "ROOM_VIEWED" -> "{\"propertyId\":\"aurora-miami\",\"roomId\":\"family-suite\"}";
+          case "RATE_VIEWED" ->
+              "{\"propertyId\":\"aurora-miami\",\"roomId\":\"family-suite\",\"rate\":389}";
+          case "BOOKING_STARTED" -> "{\"propertyId\":\"aurora-miami\"}";
+          case "BOOKING_COMPLETED" ->
+              "{\"propertyId\":\"aurora-miami\",\"bookingId\":\"booking-"
+                  + session.substring(0, 8)
+                  + "\"}";
+          default -> "{}";
+        };
+    return event(name, session, anonymous, payload);
   }
 }

@@ -14,6 +14,11 @@ public class ExperimentController {
     this.experiments = experiments;
   }
 
+  @GetMapping
+  public java.util.List<ExperimentDefinition> definitions() {
+    return experiments.definitions();
+  }
+
   @GetMapping("/{experimentId}/performance")
   public ExperimentPerformance performance(@PathVariable String experimentId) {
     return experiments.performance(experimentId);

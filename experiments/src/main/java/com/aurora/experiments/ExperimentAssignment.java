@@ -11,15 +11,21 @@ public final class ExperimentAssignment {
     return anonymousId != null && !anonymousId.isBlank() ? anonymousId : customerId;
   }
 
-  public static String assign(String anonymousId, String customerId, String experimentId) {
+  public static String assign(
+      String anonymousId, String customerId, ExperimentDefinition definition) {
     String subject = stableSubjectId(anonymousId, customerId);
     if (subject == null) throw new IllegalArgumentException("An experiment requires a subject ID");
     try {
       byte[] digest =
           MessageDigest.getInstance("SHA-256")
-              .digest((subject + ":" + experimentId).getBytes(StandardCharsets.UTF_8));
+              .digest((subject + ":" + definition.id()).getBytes(StandardCharsets.UTF_8));
       long bucket = Long.parseLong(HexFormat.of().formatHex(digest).substring(0, 8), 16) % 100;
-      return bucket < 50 ? "control" : "treatment";
+      long boundary = 0;
+      for (ExperimentDefinition.Variant variant : definition.variants()) {
+        boundary += variant.allocationPercentage();
+        if (bucket < boundary) return variant.name();
+      }
+      throw new IllegalStateException("Experiment allocation did not cover bucket " + bucket);
     } catch (Exception exception) {
       throw new IllegalStateException("Unable to assign experiment variant", exception);
     }

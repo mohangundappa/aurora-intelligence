@@ -9,36 +9,39 @@ import org.springframework.stereotype.Service;
 @Service
 public class ExperimentService {
   private final JdbcTemplate jdbc;
+  private final ExperimentRegistry registry;
 
-  public ExperimentService(JdbcTemplate jdbc) {
+  public ExperimentService(JdbcTemplate jdbc, ExperimentRegistry registry) {
     this.jdbc = jdbc;
+    this.registry = registry;
   }
 
   public ExperimentPerformance performance(String experimentId) {
+    ExperimentDefinition definition = registry.definition(experimentId);
     java.util.List<ExperimentPerformance.Variant> variants =
-        ExperimentDefinitions.variants(experimentId).stream()
-            .map(variant -> variant(experimentId, variant))
-            .toList();
+        definition.variants().stream().map(variant -> variant(definition, variant.name())).toList();
     return new ExperimentPerformance(
         experimentId,
-        variants.stream()
-            .filter(variant -> "control".equals(variant.name()))
-            .findFirst()
-            .orElse(null),
-        variants.stream()
-            .filter(variant -> "treatment".equals(variant.name()))
-            .findFirst()
-            .orElse(null),
+        definition.name(),
+        definition.description(),
+        definition.primaryOutcomeEvent(),
+        definition.minimumExposuresPerVariant(),
         variants,
-        insufficient(experimentId),
-        "At least 30 exposed subjects per variant are required before lift or significance is presented.");
+        insufficient(definition),
+        "At least "
+            + definition.minimumExposuresPerVariant()
+            + " exposed subjects per variant are required before lift or significance is presented.");
+  }
+
+  public java.util.List<ExperimentDefinition> definitions() {
+    return registry.definitions();
   }
 
   public void recordExposure(Decision decision, CdpProfile profile) {
     if (decision.experimentId() == null) return;
+    ExperimentDefinition definition = registry.definition(decision.experimentId());
     String variant =
-        ExperimentAssignment.assign(
-            profile.anonymousId(), profile.customerId(), decision.experimentId());
+        ExperimentAssignment.assign(profile.anonymousId(), profile.customerId(), definition);
     jdbc.update(
         """
         insert into experiment_exposures(
@@ -67,16 +70,16 @@ public class ExperimentService {
         java.sql.Timestamp.from(event.eventTime()));
   }
 
-  private ExperimentPerformance.Variant variant(String experimentId, String variant) {
+  private ExperimentPerformance.Variant variant(ExperimentDefinition definition, String variant) {
     Integer exposed =
         jdbc.queryForObject(
             "select count(*) from experiment_exposures where experiment_id=? and variant=?",
             Integer.class,
-            experimentId,
+            definition.id(),
             variant);
-    Integer clicks = outcome(experimentId, variant, "OFFER_CLICKED");
-    Integer starts = outcome(experimentId, variant, "BOOKING_STARTED");
-    Integer completions = outcome(experimentId, variant, "BOOKING_COMPLETED");
+    Integer clicks = outcome(definition.id(), variant, "OFFER_CLICKED");
+    Integer starts = outcome(definition.id(), variant, "BOOKING_STARTED");
+    Integer completions = outcome(definition.id(), variant, definition.primaryOutcomeEvent());
     return new ExperimentPerformance.Variant(
         variant,
         exposed,
@@ -99,10 +102,10 @@ public class ExperimentService {
         eventName);
   }
 
-  private boolean insufficient(String experimentId) {
-    return ExperimentDefinitions.variants(experimentId).stream()
-        .mapToInt(variant -> countExposures(experimentId, variant))
-        .anyMatch(count -> count < 30);
+  private boolean insufficient(ExperimentDefinition definition) {
+    return definition.variants().stream()
+        .mapToInt(variant -> countExposures(definition.id(), variant.name()))
+        .anyMatch(count -> count < definition.minimumExposuresPerVariant());
   }
 
   private int countExposures(String experimentId, String variant) {
@@ -118,6 +121,7 @@ public class ExperimentService {
   private boolean isOutcome(String eventName) {
     return "OFFER_CLICKED".equals(eventName)
         || "BOOKING_STARTED".equals(eventName)
-        || "BOOKING_COMPLETED".equals(eventName);
+        || registry.definitions().stream()
+            .anyMatch(definition -> definition.primaryOutcomeEvent().equals(eventName));
   }
 }

@@ -18,6 +18,7 @@ services:
       DATABASE_USER: aurora
       DATABASE_PASSWORD: aurora_dev
       FLYWAY_ENABLED: "true"
+      REDIS_HOST: redis
     ports: ["8080:8080"]
     depends_on: { postgres: { condition: service_healthy }, redis: { condition: service_started }, redpanda: { condition: service_started } }
   frontend:

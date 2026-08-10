@@ -1,7 +1,7 @@
 package com.aurora.agents;
 
-import com.aurora.experiments.ExperimentProposal;
-import com.aurora.experiments.ExperimentProposalRepository;
+import com.aurora.experiments.ExperimentAnalysis;
+import com.aurora.experiments.ExperimentAnalysisRepository;
 import com.aurora.objectives.WorkflowStage;
 import com.aurora.objectives.WorkflowStageTimingService;
 import java.math.BigDecimal;
@@ -9,37 +9,36 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class DeterministicExperimentationRuntime
-    implements AgentRuntime<ExperimentationInput, ExperimentProposal> {
+public class DeterministicAnalyticsRuntime
+    implements AgentRuntime<AnalyticsInput, ExperimentAnalysis> {
   private final AgentExecutionRepository executions;
-  private final ExperimentProposalRepository proposals;
+  private final ExperimentAnalysisRepository analyses;
   private final WorkflowStageTimingService timings;
-  private final ExperimentationAgent agent;
+  private final AnalyticsAgent agent;
 
-  public DeterministicExperimentationRuntime(
+  public DeterministicAnalyticsRuntime(
       AgentExecutionRepository executions,
-      ExperimentProposalRepository proposals,
+      ExperimentAnalysisRepository analyses,
       WorkflowStageTimingService timings,
       AgentToolRegistry tools) {
     this.executions = executions;
-    this.proposals = proposals;
+    this.analyses = analyses;
     this.timings = timings;
-    this.agent = new ExperimentationAgent(tools);
+    this.agent = new AnalyticsAgent(tools);
   }
 
   @Override
-  public AgentRun<ExperimentProposal> run(ExperimentationInput input, String correlationId) {
+  public AgentRun<ExperimentAnalysis> run(AnalyticsInput input, String correlationId) {
     UUID executionId = UUID.randomUUID();
     Instant startedAt = Instant.now();
     executions.save(
         new AgentExecution(
             executionId,
-            input.objective().objectiveId(),
-            "EXPERIMENTATION",
+            input.objectiveId(),
+            "ANALYTICS",
             "deterministic",
             "1",
             startedAt,
@@ -54,26 +53,15 @@ public class DeterministicExperimentationRuntime
             List.of(),
             correlationId));
     try {
-      AgentResult<ExperimentProposal> result = agent.propose(input, executionId, correlationId);
-      ExperimentProposal proposal = result.output();
+      AgentResult<ExperimentAnalysis> result = agent.analyze(input, executionId, correlationId);
+      ExperimentAnalysis analysis = result.output();
       Instant completedAt = Instant.now();
-      if (proposal != null) {
-        try {
-          proposals.save(proposal);
-        } catch (DuplicateKeyException exception) {
-          result =
-              AgentResult.refused(
-                  "PROPOSAL_ID_COLLISION",
-                  "A proposal for this insight already exists; new evidence must produce a distinct insight before retrying",
-                  java.util.Map.of("experimentId", proposal.experimentId()));
-          proposal = null;
-        }
-      }
+      if (analysis != null) analyses.save(analysis);
       AgentExecution execution =
           new AgentExecution(
               executionId,
-              input.objective().objectiveId(),
-              "EXPERIMENTATION",
+              input.objectiveId(),
+              "ANALYTICS",
               "deterministic",
               "1",
               startedAt,
@@ -83,20 +71,20 @@ public class DeterministicExperimentationRuntime
               0,
               BigDecimal.ZERO,
               Duration.between(startedAt, completedAt).toMillis(),
-              result.refusal() == null ? proposal : result.refusal(),
+              result.refusal() == null ? analysis : result.refusal(),
               List.of(),
               List.of(),
               correlationId);
       executions.save(execution);
       timings.record(
-          input.objective().objectiveId(),
-          WorkflowStage.EXPERIMENT_DESIGN,
+          input.objectiveId(),
+          WorkflowStage.ANALYSIS,
           execution.latencyMilliseconds(),
-          "deterministic-experimentation-agent",
+          "deterministic-analytics-agent",
           startedAt,
           completedAt);
       return new AgentRun<>(
-          proposal,
+          analysis,
           executions
               .findById(executionId)
               .orElseThrow(() -> new IllegalStateException("Agent execution was not persisted")));
@@ -105,8 +93,8 @@ public class DeterministicExperimentationRuntime
       executions.save(
           new AgentExecution(
               executionId,
-              input.objective().objectiveId(),
-              "EXPERIMENTATION",
+              input.objectiveId(),
+              "ANALYTICS",
               "deterministic",
               "1",
               startedAt,

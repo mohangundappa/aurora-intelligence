@@ -60,6 +60,12 @@ rules, reason-code language, experiment hypotheses, sample-size interpretation,
 and approval of customer-facing experiences. Marketing cannot deploy a
 production policy without the agreed governance process.
 
+The local approval endpoint's actor field is self-declared and unverified; its
+audit entry is attribution only, not proof that the caller was authorized.
+Production must authenticate and authorize governance endpoints (for example
+through client IT's SSO/RBAC) before treating human approval as an authorization
+gate. That authentication mechanism is intentionally outside this showcase.
+
 ## Migration/rollout RACI
 
 | Activity | CDP vendor | Partner | Our team | Client IT | Marketing |

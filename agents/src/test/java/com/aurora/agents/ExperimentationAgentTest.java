@@ -175,6 +175,66 @@ class ExperimentationAgentTest {
     assertThat(result.refusal().details()).containsKeys("observedSessionsPerDay", "remainingDays");
   }
 
+  @Test
+  void projectsTrafficUsingElapsedWindowRatherThanFutureObjectiveDays() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    UUID executionId = UUID.randomUUID();
+    List<EventRepository.SessionSummary> sessions =
+        IntStream.range(0, 60)
+            .mapToObj(
+                index ->
+                    new EventRepository.SessionSummary(
+                        "s" + index, null, null, null, Instant.now()))
+            .toList();
+    List<String> sessionIds =
+        sessions.stream().map(EventRepository.SessionSummary::sessionId).toList();
+    when(tools.invoke("listSessions", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSessions", sessions));
+    when(tools.invoke("listSignals", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSignals", List.of(signal())));
+    when(tools.invoke(
+            "calculateSignal",
+            new AgentToolInputs.SignalCalculation(
+                "weekend-getaway-affinity", "BOOKING_COMPLETED", sessionIds),
+            executionId))
+        .thenReturn(
+            invocation(
+                "calculateSignal",
+                IntStream.range(0, 60)
+                    .mapToObj(
+                        index ->
+                            new AgentToolResults.SignalObservation(
+                                "s" + index,
+                                index < 30,
+                                index < 20 ? 1 : 0,
+                                index < 20 || (index >= 30 && index < 35)))
+                    .toList()));
+
+    MarketingObjective objective =
+        new MarketingObjective(
+            "objective",
+            "Increase weekend leisure booking conversion",
+            "Description",
+            "Increase conversion",
+            "BOOKING_COMPLETED",
+            BigDecimal.valueOf(0.5),
+            "weekend leisure travelers",
+            Map.of(),
+            LocalDate.now().minusDays(10),
+            LocalDate.now().plusDays(70),
+            MarketingObjective.Status.ACTIVE,
+            "analyst",
+            Instant.now());
+    AgentResult<ExperimentProposal> result =
+        new ExperimentationAgent(tools)
+            .propose(
+                new ExperimentationInput(objective, input().insight()), executionId, "correlation");
+
+    assertThat(result.refusal()).isNull();
+    assertThat(result.output()).isNotNull();
+    assertThat(result.output().reasoning()).contains("elapsed");
+  }
+
   private SignalDefinition signal() {
     return new SignalDefinition(
         "weekend-getaway-affinity",

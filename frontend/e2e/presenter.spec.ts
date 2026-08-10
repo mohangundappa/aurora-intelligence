@@ -186,6 +186,19 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
                 toolCalls: [],
                 errors: [],
               },
+              {
+                executionId: "execution-failed",
+                agentType: "EXPERIMENTATION",
+                status: "FAILED",
+                startedAt: "2026-08-10T00:00:00Z",
+                completedAt: "2026-08-10T00:00:02Z",
+                latencyMilliseconds: 2000,
+                output: {
+                  error: "provider timeout",
+                },
+                toolCalls: [],
+                errors: ["PROVIDER_TIMEOUT"],
+              },
             ],
             timings: [],
           },
@@ -225,6 +238,15 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
       .locator(".execution-card.refusal")
       .getByText("SUCCEEDED", { exact: true }),
   ).not.toBeVisible();
+  const failedExecution = page.locator(".execution-card.failure");
+  await expect(
+    failedExecution.getByText("FAILED", { exact: true }),
+  ).toBeVisible();
+  await expect(failedExecution.locator(".pill-failed")).toBeVisible();
+  await expect(
+    failedExecution.getByText("Execution failed: PROVIDER_TIMEOUT"),
+  ).toBeVisible();
+  await expect(failedExecution.getByText(/Agent refusal:/)).not.toBeVisible();
   const nullOutputExecution = page
     .locator(".execution-card")
     .filter({ hasText: "ANALYTICS" });

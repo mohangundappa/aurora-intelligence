@@ -34,7 +34,8 @@ class FlywayMigrationVersionTest {
     List<Integer> duplicates =
         versions.stream()
             .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-            .entrySet().stream()
+            .entrySet()
+            .stream()
             .filter(entry -> entry.getValue() > 1)
             .map(Map.Entry::getKey)
             .sorted()

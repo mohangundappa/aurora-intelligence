@@ -20,13 +20,17 @@ public class MarketingObjectiveService {
               MarketingObjective.Status.COMPLETED, Set.of(MarketingObjective.Status.ARCHIVED),
               MarketingObjective.Status.ARCHIVED, Set.of());
   private final MarketingObjectiveRepository repository;
+  private final WorkflowStageTimingService timings;
 
-  public MarketingObjectiveService(MarketingObjectiveRepository repository) {
+  public MarketingObjectiveService(
+      MarketingObjectiveRepository repository, WorkflowStageTimingService timings) {
     this.repository = repository;
+    this.timings = timings;
   }
 
   @Transactional
   public MarketingObjective create(CreateObjective command) {
+    Instant started = Instant.now();
     MarketingObjective objective =
         new MarketingObjective(
             command.objectiveId() == null || command.objectiveId().isBlank()
@@ -45,6 +49,14 @@ public class MarketingObjectiveService {
             command.createdBy(),
             Instant.now());
     repository.save(objective);
+    Instant completed = Instant.now();
+    timings.record(
+        objective.objectiveId(),
+        WorkflowStage.OBJECTIVE_DEFINITION,
+        java.time.Duration.between(started, completed).toMillis(),
+        command.createdBy(),
+        started,
+        completed);
     return objective;
   }
 

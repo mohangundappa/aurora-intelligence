@@ -156,3 +156,11 @@ duplicate, and quarantined counts. Duplicate `eventId` values are ignored
 idempotently. `schemaVersion` is persisted. Additive payload properties are
 compatible; a breaking change needs a new schema version, catalog validation,
 calculator/policy review, and migration tests.
+
+## Measurement ingress
+
+Experiment exposure and outcome facts are recorded through the experiment
+measurement service and joined by `correlationId`. The local workforce seed
+uses this service path rather than inserting measurement rows directly.
+Production integrations must map provider exposure and outcome contracts to
+these identifiers and preserve consent, subject, session, and event provenance.

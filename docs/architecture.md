@@ -34,6 +34,50 @@ flowchart LR
   console --> ops[Console APIs]
 ```
 
+## Governed workforce loop
+
+The workforce APIs and read-only console make the causal path durable and
+watchable:
+
+```text
+MarketingObjective
+  → deterministic Insights Agent + evidence references
+  → Experimentation Agent + governed proposal
+  → human approval audit (SELF_DECLARED_UNVERIFIED locally)
+  → provider-neutral audience/campaign activation attempts
+  → deliberate experiment deployment and exposure/outcome measurement
+  → Analytics Agent + 30-per-arm evidence guard
+  → SHIP / STOP / ITERATE recommendation, or a first-class refusal
+```
+
+Agent executions retain tool calls, result references, output/refusal snapshots,
+errors, correlation IDs, and measured latency. `/console/workforce` renders
+these facts in causal order and remains read-only. Workflow-stage timings are
+observed durations in this local environment; they are not causal evidence or
+commercial performance measurements.
+
+## Governed workforce loop
+
+The workforce APIs and read-only console make the causal path durable and
+watchable:
+
+```text
+MarketingObjective
+  → deterministic Insights Agent + evidence references
+  → Experimentation Agent + governed proposal
+  → human approval audit (SELF_DECLARED_UNVERIFIED locally)
+  → provider-neutral audience/campaign activation attempts
+  → deliberate experiment deployment and exposure/outcome measurement
+  → Analytics Agent + 30-per-arm evidence guard
+  → SHIP / STOP / ITERATE recommendation, or a first-class refusal
+```
+
+Agent executions retain tool calls, result references, output/refusal snapshots,
+errors, correlation IDs, and measured latency. `/console/workforce` renders
+these facts in causal order and remains read-only. Workflow-stage timings are
+observed durations in this local environment; they are not causal evidence or
+commercial performance measurements.
+
 ## Components and extraction seams
 
 | Module | Responsibility and current seam |

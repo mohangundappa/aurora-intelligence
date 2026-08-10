@@ -19,6 +19,7 @@ scale, provider parity, or commercial lift.
 | Cache | Redis TTL/cache with PostgreSQL fallback and event eviction | HA Redis, invalidation delivery guarantees, cache warming and tenant isolation |
 | Operations | SQL-derived metrics and health endpoints | Native broker lag, tracing, SLOs, alerting, incident/runbook integration |
 | Security | Local credentials and consent fields; governance actors are self-declared and unverified in this showcase | SSO/RBAC, secrets manager, encryption, retention/deletion, masking and audit export |
+| Digital Workforce | Read-only console, deterministic agents, evidence/refusal records, governed proposal lifecycle, provider-neutral simulated activation, measurement guard, and evaluation harness | Authenticated governance, live LLM runtime, real provider adapters, production experiment deployment and operating controls |
 
 ## CDP integration approach
 
@@ -84,3 +85,19 @@ and record it as `SELF_DECLARED_UNVERIFIED`; this is attribution, not
 authentication or authorization. Production must authenticate and authorize
 approvals and other governance transitions with SSO/RBAC before relying on the
 approval gate.
+
+## Known showcase gaps
+
+1. Governance endpoints have no authentication or authorization; actors are
+   self-declared and unverified.
+2. The console can render an unmet-analysis guard defensively, but the product
+   Analytics Agent currently refuses before persisting an insufficient-sample
+   analysis, so that branch is not product-reachable.
+3. No live LLM runtime exists behind `AgentRuntime`; the showcase runtimes are
+   deterministic.
+4. No real CDP or MarTech provider adapters exist; local implementations
+   exercise provider-neutral seams and explicit outcomes only.
+
+These are engagement work, not claims hidden behind the demo: the client
+provides authenticated governance, licensed provider contracts, production
+data, and operating requirements that an implementation must satisfy.

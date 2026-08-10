@@ -1,9 +1,16 @@
-# Presentable demo script: 10–15 minutes
+# Presentable demo script: governed workforce loop
+
+This 10–15 minute walkthrough follows:
+
+```text
+objective → insight → proposal → human approval → activated draft
+→ measured exposures → analysis → recommendation
+```
+
+The local runtimes are deterministic. Workflow timings are measured local
+durations, not evidence for the commercial delivery-time target.
 
 ## Before the room
-
-Prerequisites: Docker Compose, Java 21/Maven 3.6+, Node 20 and Chromium.
-From a clean checkout run exactly:
 
 ```bash
 MAVEN_MIRROR_URL=https://repo.huaweicloud.com/repository/maven/ \
@@ -11,130 +18,95 @@ MAVEN_MIRROR_URL=https://repo.huaweicloud.com/repository/maven/ \
 ./scripts/seed-demo.sh --reset
 ```
 
-Open `http://localhost:3000`, then keep the console in another tab. The seed
-uses fixed IDs/timestamps and creates synthetic experiment volume. To reset,
-rerun `./scripts/seed-demo.sh --reset`.
+Wait for `http://localhost:8080/actuator/health` to report `{"status":"UP"}`,
+then open `http://localhost:3000/console/workforce`.
 
-## Script
+The reset creates:
 
-### 0:00–1:00 — frame the problem
+- `demo-workforce-miami` — **Family traveler signal effect**, the complete
+  governed loop with 100 synthetic exposures.
+- `demo-workforce-refusal` — **Explore an unsupported loyalty question**, whose
+  Insights Agent produces a real `NO_RELEVANT_SIGNAL` refusal. No unsupported
+  insight or analysis is fabricated.
 
-Say: “Aurora works beside a CDP. The CDP remains the profile, consent,
-identity, audience and activation platform; Aurora accelerates signals, models,
-decisions and measurement.”
+Runtime-generated insight, proposal, execution, analysis, and activation IDs
+are intentionally not hard-coded. The objective IDs and business values above
+are stable reset values.
 
-Point to the site header and `/console` navigation. Business value: one
-explainable path from meaningful behavior to action, rather than a collection
-of mock screens.
+## Walkthrough
 
-### 1:00–3:30 — create the journey
+### 1. Objectives and refusal
 
-Use the seeded `demo-headline-miami` session for deterministic console proof,
-then optionally reproduce the site interaction:
+1. Confirm the page announces **Loading workforce data** while the first API
+   request is pending, if the response is slow.
+2. Confirm both objective cards are present.
+3. Select **Family traveler signal effect**. Point out lifecycle `ACTIVE`,
+   target KPI `BOOKING_COMPLETED`, target `0.20`, and audience
+   **family travelers**.
+4. Select **Explore an unsupported loyalty question** and expand its execution.
+   Show **REFUSED**, code `NO_RELEVANT_SIGNAL`, and the reason that no
+   registered signal matched. A refusal is a governed outcome, not an empty
+   result.
 
-1. Enter `Miami`.
-2. Set check-in `2026-06-05`, check-out `2026-06-08`.
-3. Select Adults `2`, Children `2`.
-4. Click **Search stays**.
-5. Check **Pool** and **Resort**.
-6. Open the first property, click **See room details**, then **Select room**.
-7. Click **Trigger presenter abandonment event**.
+### 2. Insight and proposal
 
-Expected events in order include `DESTINATION_SEARCHED`,
-`TRAVEL_DATES_SELECTED`, `TRAVEL_PARTY_SELECTED`, `FILTER_APPLIED` for pool
-and resort, `PROPERTY_VIEWED`, `ROOM_VIEWED`, `RATE_VIEWED`,
-`BOOKING_STARTED`, and `BOOKING_ABANDONED`. The deterministic seeded session
-also contains repeated property, destination and party evidence to make the
-values stable. The seed contains budget evidence for the price-sensitivity
-calculator, but there is no budget control in the customer UI and the presenter
-does not click one.
+1. Return to the family objective and follow **Objective → Insight → Proposal**.
+2. Expand the insight to show its finding, observed metrics, and reachable
+   evidence references.
+3. Expand the Experimentation Agent execution to show its tool calls and
+   evidence references, then the generated two-arm proposal.
 
-### 3:30–5:30 — explain the why
+### 3. Human approval gate
 
-Select `demo-headline-miami` in the console. In **Derived signals**, point to
-the explanation and provenance, not just the score. Verified seeded values are:
+Expand **Governance** and show:
 
-```text
-destination-intent       75
-family-travel-affinity  100
-amenity-preference      100
-resort-affinity          75
-price-sensitivity        80
-booking-intent           100
-abandonment-risk          55
-journey-stage             Abandoned
-weekend-getaway-affinity   35
-```
+- `PROPOSED → APPROVED`;
+- actor `demo-marketer`;
+- reason **Approve the grounded proposal for the client walkthrough.**;
+- `SELF_DECLARED_UNVERIFIED`.
 
-Point to **NBA and reason codes**. Expected decision:
-`RECOMMEND_FAMILY_RESORT` / `FAMILY_RESORT_RECOMMENDATION`, with
-`FAMILY_RESORT_EVIDENCE` and `RESORT_AFFINITY_ELIGIBLE`. Business value:
-Marketing can explain why a family resort was recommended and audit the
-correlation ID back to events.
+Say aloud that the local actor is attribution only, not proof of an
+authenticated approval. Production requires SSO/RBAC.
 
-### 5:30–7:00 — identity moment
+### 4. Activation and measurement
 
-Select `demo-identity-stitch`, or reproduce it by opening `/login` in the same
-browser session and submitting the prefilled simulated credentials. The exact
-event is `CUSTOMER_IDENTIFIED` with `customerId=demo-aurora-member` for the
-browser flow, while the seeded API scenario uses `demo-customer-100`.
+1. Expand **Activation**. Explain that approval activation creates a
+   non-serving `DRAFT` experiment definition; the seed then uses the deliberate
+   deployment path for measurement.
+2. Show the provider-neutral `AUDIENCE` and `CAMPAIGN` attempts: destination,
+   accepted status, counts, idempotency key, and opaque metadata.
+3. Point out the 100 total synthetic exposures. On this reset, the randomized
+   split is **50 control** and **50 personalized** exposures. Do not describe
+   them as commercial traffic.
 
-Open the identity timeline. Explain that the link is explicit, anonymous
-signals remain pre-identification history, and no implicit merge occurs.
-Business value: continuity without pretending the accelerator owns the CDP's
-identity graph.
+### 5. Analysis and recommendation
 
-### 7:00–8:30 — rollout accelerator
+1. Expand **Analysis** and show per-arm exposures and outcomes: control has
+   **50 exposures / 5 outcomes (10.0%)** and personalized has **50 exposures /
+   7 outcomes (14.0%)**.
+2. Confirm `GUARD MET`, **40.0% relative lift**, and the Analytics Agent
+   recommendation **ITERATE**. The seeded rates are intentionally plausible
+   and modest; this sample was not tuned to manufacture a winner. The
+   recommendation reflects that the observed difference did not meet the
+   significance threshold.
+3. Expand the Analytics execution to show
+   `getExperimentPerformance`, `getExperimentExposures`, and
+   `getExperimentOutcomes`, with their evidence references.
+4. Point out the **Recommendation** stage in the causal strip.
+5. Open timings. They are measured durations in this local environment, not a
+   causal analysis and not proof of the commercial 50% target.
 
-Open `/console/lifecycle`. Deploy booking-intent `2.0`, inspect the prediction
-version and per-feature contributions, then roll back to `1.0`. Point to the
-audit entry. Business value: a repeatable path from evaluated version to
-approved deployment and reversible serving behavior.
+## Honest boundaries
 
-### 8:30–10:30 — guarded measurement
-
-Open `/console/experiments`. Explain that a no-seed or small-data state shows
-the prominent warning requiring 30 exposed subjects per variant and withholds
-lift/significance claims.
-
-After `seed-demo.sh --reset`, the deterministic 100-session seed typically
-produces more than 30 exposures per arm. A clean reset seed verified 55 control
-and 45 treatment exposures, summing to the 100 seeded sessions; an interactive
-walkthrough adds rows on top of that, so a total above 100 means the state is no
-longer clean. Outcome rows are
-`OFFER_CLICKED`, `BOOKING_STARTED`,
-and `BOOKING_COMPLETED`, joined to decisions through `correlationId`. Say
-“synthetic demo volume,” not “commercial lift.”
-
-To show a completion through the UI, open `/booking/aurora-miami?room=family-suite`,
-fill Demo / Traveler / `traveler@example.test`, and click **Confirm simulated
-booking**. The page shows a simulated confirmation; no payment is taken.
-
-### 10:30–12:00 — funnel and operations
-
-Open `/console/funnel`. Show aggregate distinct-session stages and drop-off;
-append `?session=demo-headline-miami` for the single journey. Open
-`/console/ops` and point to ingest/quarantine counts, reason breakdown,
-freshness, decision latency, and **consumer lag approximation (persisted
-timestamps)**.
-
-### 12:00–14:00 — value and close
-
-Open the delivery assumptions table. Explain that its computed target is based
-on visible assumptions and is not a measured commercial result. Tie the three
-business problems together: reusable definitions and rollback shorten
-development/rollout; event-to-decision context shortens signal-to-decision
-time; persisted exposure/outcome joins measure incremental value honestly.
-
-## Troubleshooting
-
-- Backend unhealthy: `docker compose ps`, then inspect
-  `docker compose logs --tail=100 backend`.
-- Maven HTTP 429 during build: rerun with the documented
-  `MAVEN_MIRROR_URL`; do not commit that mirror.
-- Empty console: wait for `/actuator/health`, rerun the seed, then select a
-  backend session rather than “This browser session.”
-- Missing signal evidence: use `./scripts/seed-demo.sh --reset`; consumer
-  processing is near-real-time and context reads recalculate on cache miss.
-- Reproduce only the guard: reset and create fewer than 30 exposures per arm;
-  never delete measurement rows merely to force a headline.
+- Simulated providers prove adapter payload, idempotency, and failure
+  representation only; they do not prove provider authentication, rate limits,
+  asynchronous behavior, residency, or contract stability.
+- Governance actors are self-declared and unverified.
+- The console is read-only: it cannot approve, activate, deploy, invoke an
+  agent, or change policy.
+- The Analytics Agent currently refuses before persisting an
+  insufficient-sample analysis. The seeded refusal is the honest
+  product-reachable example; it is not presented as a guard-not-met analysis.
+- `AgentRuntime` is a future LLM seam; this showcase has deterministic
+  runtimes and requires the same evidence/refusal evaluation bar for a future
+  LLM implementation.

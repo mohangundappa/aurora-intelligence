@@ -42,7 +42,8 @@ class MarketingObjectiveServiceTest {
     MarketingObjective objective = objective(MarketingObjective.Status.DRAFT);
     when(repository.findById("objective-1")).thenReturn(Optional.of(objective));
 
-    MarketingObjectiveService service = new MarketingObjectiveService(repository);
+    MarketingObjectiveService service =
+        new MarketingObjectiveService(repository, mock(WorkflowStageTimingService.class));
 
     assertThatThrownBy(
             () ->
@@ -59,7 +60,7 @@ class MarketingObjectiveServiceTest {
     when(repository.findById("objective-1"))
         .thenReturn(Optional.of(objective), Optional.of(active));
 
-    new MarketingObjectiveService(repository)
+    new MarketingObjectiveService(repository, mock(WorkflowStageTimingService.class))
         .transition("objective-1", MarketingObjective.Status.ACTIVE, "presenter");
 
     verify(repository).transition("objective-1", MarketingObjective.Status.ACTIVE);
@@ -69,6 +70,36 @@ class MarketingObjectiveServiceTest {
             "presenter",
             MarketingObjective.Status.DRAFT,
             MarketingObjective.Status.ACTIVE);
+  }
+
+  @Test
+  void objectiveCreationRecordsDefinitionTiming() {
+    MarketingObjectiveRepository repository = mock(MarketingObjectiveRepository.class);
+    WorkflowStageTimingService timings = mock(WorkflowStageTimingService.class);
+    MarketingObjectiveService service = new MarketingObjectiveService(repository, timings);
+
+    service.create(
+        new MarketingObjectiveService.CreateObjective(
+            "objective-1",
+            "Increase bookings",
+            "Description",
+            "Grow direct bookings",
+            "BOOKING_COMPLETED",
+            BigDecimal.TEN,
+            "Miami families",
+            Map.of(),
+            LocalDate.of(2026, 1, 1),
+            LocalDate.of(2026, 2, 1),
+            "marketer"));
+
+    verify(timings)
+        .record(
+            org.mockito.ArgumentMatchers.eq("objective-1"),
+            org.mockito.ArgumentMatchers.eq(WorkflowStage.OBJECTIVE_DEFINITION),
+            org.mockito.ArgumentMatchers.anyLong(),
+            org.mockito.ArgumentMatchers.eq("marketer"),
+            org.mockito.ArgumentMatchers.any(Instant.class),
+            org.mockito.ArgumentMatchers.any(Instant.class));
   }
 
   private MarketingObjective objective(MarketingObjective.Status status) {

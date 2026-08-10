@@ -24,19 +24,11 @@ public class ExperimentService {
     ExperimentDefinition definition = registry.definition(experimentId);
     java.util.List<ExperimentPerformance.Variant> variants =
         definition.variants().stream().map(variant -> variant(definition, variant.name())).toList();
-    boolean insufficient =
-        definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DEPLOYED
-            || insufficient(definition);
+    boolean insufficient = preDeployment(definition) || insufficient(definition);
     String warning =
-        definition.lifecycleStatus() == ExperimentDefinition.LifecycleStatus.DEPLOYED
-            ? "At least "
-                + definition.minimumExposuresPerVariant()
-                + " exposed subjects per variant are required before lift or significance is presented."
-            : "Experiment "
-                + definition.id()
-                + " is "
-                + definition.lifecycleStatus()
-                + " and is not serving; lift is withheld.";
+        "At least "
+            + definition.minimumExposuresPerVariant()
+            + " exposed subjects per variant are required before lift or significance is presented.";
     return new ExperimentPerformance(
         experimentId,
         definition.name(),
@@ -129,6 +121,13 @@ public class ExperimentService {
     return definition.variants().stream()
         .mapToInt(variant -> countExposures(definition.id(), variant.name()))
         .anyMatch(count -> count < definition.minimumExposuresPerVariant());
+  }
+
+  private boolean preDeployment(ExperimentDefinition definition) {
+    return switch (definition.lifecycleStatus()) {
+      case DRAFT, TESTED, APPROVED -> true;
+      case DEPLOYED, RETIRED -> false;
+    };
   }
 
   private int countExposures(String experimentId, String variant) {

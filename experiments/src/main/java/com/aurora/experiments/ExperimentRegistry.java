@@ -6,15 +6,19 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
 @Component
 public class ExperimentRegistry {
+  private static final Logger log = LoggerFactory.getLogger(ExperimentRegistry.class);
   private final Map<String, ExperimentDefinition> yamlDefinitions;
   private final ExperimentDefinitionRepository repository;
   private volatile Map<String, ExperimentDefinition> definitions;
@@ -27,7 +31,14 @@ public class ExperimentRegistry {
       ExperimentDefinitionRepository repository) {
     this.repository = repository;
     this.yamlDefinitions = loadYaml(resolver, location);
-    refresh();
+    try {
+      refresh();
+    } catch (DataAccessException exception) {
+      definitions = Map.copyOf(yamlDefinitions);
+      log.warn(
+          "Database experiment definitions unavailable during startup; serving YAML definitions only: {}",
+          exception.getMessage());
+    }
   }
 
   public ExperimentRegistry(ResourcePatternResolver resolver, String location) {

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class ExperimentDefinitionRepository {
@@ -73,6 +74,7 @@ public class ExperimentDefinitionRepository {
         .toList();
   }
 
+  @Transactional
   public void save(ExperimentDefinition definition) {
     jdbc.update(
         """

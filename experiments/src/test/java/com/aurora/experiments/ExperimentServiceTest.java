@@ -136,10 +136,29 @@ class ExperimentServiceTest {
         new ExperimentService(jdbc, registry).performance("draft-experiment");
 
     assertThat(result.insufficientSample()).isTrue();
-    assertThat(result.warning()).contains("not serving", "lift is withheld");
+    assertThat(result.warning()).contains("30 exposed subjects per variant", "lift");
     assertThat(result.variants())
         .extracting(ExperimentPerformance.Variant::exposed)
         .containsOnly(0);
+  }
+
+  @Test
+  void retiredExperimentReportsWhenExposureThresholdIsMet() {
+    JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    when(jdbc.queryForObject(anyString(), eq(Integer.class), any(), any())).thenReturn(30);
+    when(jdbc.queryForObject(anyString(), eq(Integer.class), any(), any(), any())).thenReturn(3);
+    ExperimentRegistry registry = mock(ExperimentRegistry.class);
+    when(registry.definition("retired-experiment"))
+        .thenReturn(definition(ExperimentDefinition.LifecycleStatus.RETIRED, "retired-experiment"));
+
+    ExperimentPerformance result =
+        new ExperimentService(jdbc, registry).performance("retired-experiment");
+
+    assertThat(result.insufficientSample()).isFalse();
+    assertThat(result.warning()).contains("30 exposed subjects per variant");
+    assertThat(result.variants())
+        .extracting(ExperimentPerformance.Variant::conversionRate)
+        .containsOnly(0.1d);
   }
 
   private ExperimentDefinition definition(ExperimentDefinition.LifecycleStatus status) {

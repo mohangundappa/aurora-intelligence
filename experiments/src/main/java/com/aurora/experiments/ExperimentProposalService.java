@@ -120,6 +120,7 @@ public class ExperimentProposalService {
     requireReason(reason);
     ExperimentProposal proposal = get(proposalId);
     requireState(proposal, ExperimentProposal.GovernanceState.APPROVED);
+    definitions.assertCanRegister(proposal.toDraftDefinition());
     Instant started = Instant.now();
     ActivationResult audienceResult = registerAudience(proposal);
     ActivationAttempt audienceAttempt =

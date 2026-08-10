@@ -86,6 +86,10 @@ class ExperimentationAgentTest {
     assertThat(proposal.experimentId()).contains("weekend-leisure-booking-conversion");
     assertThat(proposal.reasoning())
         .contains("5% significance", "80% power", "0.5000", "0.5000", "sessions per day");
+
+    ExperimentProposal repeated =
+        new ExperimentationAgent(tools).propose(input(), executionId, "correlation-2").output();
+    assertThat(repeated.experimentId()).isEqualTo(proposal.experimentId());
   }
 
   @Test

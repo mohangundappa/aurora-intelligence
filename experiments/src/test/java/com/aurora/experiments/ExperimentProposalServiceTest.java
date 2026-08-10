@@ -72,7 +72,6 @@ class ExperimentProposalServiceTest {
     ExperimentProposal activated = proposal(ExperimentProposal.GovernanceState.ACTIVATED, id);
     when(repository.findById(id))
         .thenReturn(java.util.Optional.of(approved), java.util.Optional.of(activated));
-
     providerService().activate(id, "operator", "approved rollout configuration");
 
     verify(definitions).saveAfterCommit(approved.toDraftDefinition());
@@ -83,6 +82,25 @@ class ExperimentProposalServiceTest {
             ExperimentProposal.GovernanceState.ACTIVATED,
             "operator",
             "approved rollout configuration");
+  }
+
+  @Test
+  void duplicateLogicalExperimentIsRejectedBeforeProviderActivation() {
+    UUID id = UUID.randomUUID();
+    ExperimentProposal approved = proposal(ExperimentProposal.GovernanceState.APPROVED, id);
+    when(repository.findById(id)).thenReturn(java.util.Optional.of(approved));
+    doThrow(
+            new IllegalStateException(
+                "Experiment definition id '"
+                    + approved.experimentId()
+                    + "' already describes a registered logical experiment"))
+        .when(definitions)
+        .assertCanRegister(approved.toDraftDefinition());
+
+    assertThatThrownBy(() -> providerService().activate(id, "operator", "activate"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("already describes a registered logical experiment");
+    verify(definitions, never()).saveAfterCommit(approved.toDraftDefinition());
   }
 
   @Test

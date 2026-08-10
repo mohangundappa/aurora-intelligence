@@ -12,7 +12,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new Error(`Aurora API request failed: ${response.status}${detail}`);
   }
-  return response.json() as Promise<T>;
+  const body = await response.text();
+  return (body ? JSON.parse(body) : undefined) as T;
 }
 
 export function getApi<T>(path: string): Promise<T> {

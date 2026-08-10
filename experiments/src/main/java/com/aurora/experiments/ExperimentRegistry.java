@@ -127,8 +127,19 @@ public class ExperimentRegistry {
           "Cannot write experiment definition while database experiment definitions are unavailable; retry after the database recovers");
     }
     if (definitions.containsKey(id)) {
-      throw new IllegalStateException(
-          "Experiment definition id '" + id + "' is already registered");
+      if (repository != null && !repository.existsById(id)) {
+        log.warn(
+            "Experiment definition '{}' disappeared from the database; refreshing the serving registry before retrying the write",
+            id);
+        refresh();
+      }
+      if (definitions.containsKey(id)) {
+        throw new IllegalStateException(
+            "Experiment definition id '"
+                + id
+                + "' already describes a registered logical experiment; "
+                + "a new proposal must use a different objective or signal");
+      }
     }
   }
 

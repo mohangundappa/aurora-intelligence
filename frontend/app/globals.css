@@ -552,6 +552,13 @@ details > summary {
   border-radius: 0.5rem;
 }
 
+.console-success {
+  padding: 1rem;
+  color: #d7f4e8;
+  background: #245449;
+  border-radius: 0.5rem;
+}
+
 .console-warning {
   padding: 1rem;
   color: #ffe9b5;

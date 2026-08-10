@@ -21,6 +21,12 @@ MAVEN_MIRROR_URL=https://repo.huaweicloud.com/repository/maven/ \
 Wait for `http://localhost:8080/actuator/health` to report `{"status":"UP"}`,
 then open `http://localhost:3000/console/workforce`.
 
+The console reconciles a browser-persisted demo login with a reset backend: if
+the customer identity remains in local storage but the reset removed its
+identity-link row, it says that the identity is present but no link was
+recorded for this reset. For a clean identity walkthrough, clear the browser
+storage before signing in again.
+
 The reset creates:
 
 - `demo-workforce-miami` — **Family traveler signal effect**, the complete
@@ -52,7 +58,9 @@ are stable reset values.
 
 1. Return to the family objective and follow **Objective → Insight → Proposal**.
 2. Expand the insight to show its finding, observed metrics, and reachable
-   evidence references.
+   evidence references. The seeded comparison keeps its qualitative direction
+   but withholds comparative rates because at least one evidence group is below
+   the platform minimum of 30 sessions.
 3. Expand the Experimentation Agent execution to show its tool calls and
    evidence references, then the generated two-arm proposal.
 
@@ -73,18 +81,22 @@ authenticated approval. Production requires SSO/RBAC.
 1. Expand **Activation**. Explain that approval activation creates a
    non-serving `DRAFT` experiment definition; the seed then uses the deliberate
    deployment path for measurement.
+   Approval must be completed before clicking **Deploy**. Deploying first is
+   rejected by the governance gate with a visible `409`; that is an enforced
+   legality check, not a disabled demo button.
 2. Show the provider-neutral `AUDIENCE` and `CAMPAIGN` attempts: destination,
    accepted status, counts, idempotency key, and opaque metadata.
-3. Point out the 100 total synthetic exposures. On this reset, the randomized
-   split is **50 control** and **50 personalized** exposures. Do not describe
-   them as commercial traffic.
+3. Point out the 100 total synthetic exposures. On every reset, the
+   deterministic experiment assignment produces **52 control** and **48
+   personalized** exposures. Do not describe them as commercial traffic.
 
 ### 5. Analysis and recommendation
 
 1. Expand **Analysis** and show per-arm exposures and outcomes: control has
-   **50 exposures / 5 outcomes (10.0%)** and personalized has **50 exposures /
-   7 outcomes (14.0%)**.
-2. Confirm `GUARD MET`, **40.0% relative lift**, and the Analytics Agent
+   **52 exposures / 5 outcomes (9.6%)** and personalized has **48 exposures /
+   7 outcomes (14.6%)**.
+2. Confirm `GUARD MET`, **5.0 percentage points absolute lift** and
+   **51.7% relative lift**, and the Analytics Agent
    recommendation **ITERATE**. The seeded rates are intentionally plausible
    and modest; this sample was not tuned to manufacture a winner. The
    recommendation reflects that the observed difference did not meet the

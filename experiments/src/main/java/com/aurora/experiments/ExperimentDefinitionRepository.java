@@ -77,6 +77,14 @@ public class ExperimentDefinitionRepository {
         .toList();
   }
 
+  public boolean existsById(String experimentId) {
+    return Boolean.TRUE.equals(
+        jdbc.queryForObject(
+            "select exists(select 1 from experiment_definitions where experiment_id=?)",
+            Boolean.class,
+            experimentId));
+  }
+
   @Transactional
   public void save(ExperimentDefinition definition) {
     jdbc.update(

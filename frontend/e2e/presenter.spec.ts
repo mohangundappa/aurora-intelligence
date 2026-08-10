@@ -305,3 +305,145 @@ test("workforce console announces loading separately from an empty state", async
     page.getByRole("heading", { name: "No objectives yet" }),
   ).toBeVisible();
 });
+
+test("successful lifecycle transition shows recorded success without an error", async ({
+  page,
+}) => {
+  await page.route("**/api/models/booking-intent", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          { version: "1.0", status: "DEPLOYED" },
+          { version: "2.0", status: "TESTED" },
+        ]),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.route("**/api/signals/lifecycle", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/models/booking-intent/2.0/approve", async (route) => {
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/console/lifecycle");
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(
+    page
+      .locator('[role="status"]')
+      .filter({ hasText: "Lifecycle transition completed and was recorded." }),
+  ).toBeVisible();
+  await expect(page.locator(".console-error")).toHaveCount(0);
+});
+
+test("workforce console leads with ordered objectives and collapses global attempts", async ({
+  page,
+}) => {
+  const attempts = Array.from({ length: 109 }, (_, index) => ({
+    operation: "OFFER_DELIVERY",
+    destinationId: "web",
+    status: "ACCEPTED",
+    acceptedCount: 1,
+    rejectedCount: 0,
+    reason: null,
+    providerMetadata: {},
+    attemptedAt: `2026-08-10T00:00:${String(index).padStart(2, "0")}Z`,
+    contextId: `session-${index}`,
+  }));
+  await page.route("**/api/console/workforce", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        objectives: [
+          {
+            objective: {
+              objectiveId: "refusal",
+              name: "Explore an unsupported loyalty question",
+              description: "No relevant signal",
+              status: "DRAFT",
+              targetKpi: "BOOKING_COMPLETED",
+              targetValue: 0.2,
+            },
+            insights: [],
+            proposals: [],
+            executions: [],
+            timings: [],
+          },
+          {
+            objective: {
+              objectiveId: "complete",
+              name: "Family traveler signal effect",
+              description: "Complete loop",
+              status: "ACTIVE",
+              targetKpi: "BOOKING_COMPLETED",
+              targetValue: 0.2,
+            },
+            insights: [
+              {
+                insightId: "insight",
+                subject: "Family signal",
+                finding: "Association",
+                metrics: {},
+                evidenceRefs: [],
+                createdAt: "2026-08-10T00:00:00Z",
+              },
+            ],
+            proposals: [
+              {
+                proposal: {
+                  proposalId: "proposal",
+                  experimentName: "Family experiment",
+                  experimentId: "experiment",
+                  reasoning: "Reasoning",
+                  evidenceRefs: [],
+                  governanceState: "ACTIVATED",
+                },
+                audit: [],
+                activationAttempts: [],
+                analyses: [
+                  {
+                    analysisId: "analysis",
+                    variants: [],
+                    sufficientSample: true,
+                    absoluteLift: 0.01,
+                    relativeLift: 0.1,
+                    recommendation: "ITERATE",
+                    reasoning: "Iterate",
+                    evidenceRefs: [],
+                  },
+                ],
+                analysisError: null,
+              },
+            ],
+            executions: [],
+            timings: [],
+          },
+        ],
+        executions: [],
+        activationAttempts: attempts,
+      }),
+    });
+  });
+
+  await page.goto("/console/workforce");
+  const headings = page.locator(".workforce-objective h2");
+  await expect(headings.nth(0)).toHaveText("Family traveler signal effect");
+  await expect(headings.nth(1)).toHaveText(
+    "Explore an unsupported loyalty question",
+  );
+  const attemptsSection = page.getByText(
+    "Provider activation attempts (109)",
+    { exact: true },
+  );
+  await expect(attemptsSection).toBeVisible();
+  await expect(page.getByText("context session-0")).not.toBeVisible();
+  await attemptsSection.click();
+  await expect(page.getByText("context session-0")).toBeVisible();
+  await expect(page.getByText("Showing the first 20 of 109 attempts.")).toBeVisible();
+});

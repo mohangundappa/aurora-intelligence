@@ -189,6 +189,11 @@ export default function Console() {
                     </span>
                   </div>
                 ))
+              ) : data.context.profile.identity.identified ? (
+                <p className="muted">
+                  Customer identity is present, but no identity link was
+                  recorded for this reset.
+                </p>
               ) : (
                 <p className="muted">No identity link has been recorded.</p>
               )}

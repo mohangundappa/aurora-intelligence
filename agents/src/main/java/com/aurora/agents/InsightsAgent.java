@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class InsightsAgent {
+  private static final int PLATFORM_MINIMUM_COMPARABLE_GROUP_SIZE = 30;
   private final AgentToolProvider tools;
 
   public InsightsAgent(AgentToolProvider tools) {
@@ -85,15 +86,20 @@ public class InsightsAgent {
     metrics.put("sessionsWithoutSignal", withoutSignal.size());
     metrics.put("conversionsWithSignal", convertedWithSignal);
     metrics.put("conversionsWithoutSignal", convertedWithoutSignal);
-    metrics.put("conversionRateWithSignal", withSignalRate);
-    metrics.put("conversionRateWithoutSignal", withoutSignalRate);
-    metrics.put("conversionRateDifference", withSignalRate - withoutSignalRate);
-    return AgentResult.success(
-        new MarketingInsight(
-            UUID.randomUUID(),
-            objective.objectiveId(),
-            relevantSignal.name() + " conversion comparison",
-            "In the observed data, sessions with "
+    boolean ratesComparable =
+        withSignal.size() >= PLATFORM_MINIMUM_COMPARABLE_GROUP_SIZE
+            && withoutSignal.size() >= PLATFORM_MINIMUM_COMPARABLE_GROUP_SIZE;
+    if (ratesComparable) {
+      metrics.put("conversionRateWithSignal", withSignalRate);
+      metrics.put("conversionRateWithoutSignal", withoutSignalRate);
+      metrics.put("conversionRateDifference", withSignalRate - withoutSignalRate);
+    } else {
+      metrics.put("comparisonRatesWithheld", true);
+      metrics.put("minimumComparableGroupSize", PLATFORM_MINIMUM_COMPARABLE_GROUP_SIZE);
+    }
+    String finding =
+        ratesComparable
+            ? "In the observed data, sessions with "
                 + relevantSignal.name()
                 + " showed "
                 + direction
@@ -103,7 +109,23 @@ public class InsightsAgent {
                 + formatPercent(withSignalRate)
                 + " vs "
                 + formatPercent(withoutSignalRate)
-                + "); this observed association should be tested by an experiment.",
+                + "); this observed association should be tested by an experiment."
+            : "In the observed data, sessions with "
+                + relevantSignal.name()
+                + " showed "
+                + direction
+                + " "
+                + objective.targetKpi()
+                + " conversion than sessions without it; comparative rates are "
+                + "withheld because at least one comparison group has fewer than "
+                + PLATFORM_MINIMUM_COMPARABLE_GROUP_SIZE
+                + " sessions. This observed association should be tested by an experiment.";
+    return AgentResult.success(
+        new MarketingInsight(
+            UUID.randomUUID(),
+            objective.objectiveId(),
+            relevantSignal.name() + " conversion comparison",
+            finding,
             metrics,
             List.of(
                 sessionsCall.resultReference(),

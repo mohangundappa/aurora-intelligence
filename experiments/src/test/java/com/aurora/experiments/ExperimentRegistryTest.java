@@ -50,6 +50,24 @@ class ExperimentRegistryTest {
   }
 
   @Test
+  void staleDatabaseDefinitionCanBeRecreatedAfterExternalReset() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    ExperimentDefinition databaseDefinition = definition("database-experiment");
+    when(repository.findAll()).thenReturn(List.of(databaseDefinition), List.of());
+    when(repository.existsById("database-experiment")).thenReturn(false);
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(), "classpath:/experiments/*.yaml", repository);
+
+    registry.assertCanWrite("database-experiment");
+
+    assertThat(registry.definitions())
+        .extracting(ExperimentDefinition::id)
+        .doesNotContain("database-experiment");
+  }
+
+  @Test
   void yamlAndDatabaseIdCollisionFailsLoudly() {
     ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
     when(repository.findAll()).thenReturn(List.of(definition("destination-experience-v1")));

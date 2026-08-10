@@ -1,0 +1,95 @@
+[
+  {
+    "id": "insights-grounded",
+    "agent": "INSIGHTS",
+    "fixture": "insights-grounded",
+    "fixtureData": {"sessions": 100, "signalGroups": 2, "conversions": 1},
+    "obligations": ["GROUNDED_EVIDENCE", "OBSERVATIONAL_LANGUAGE", "NO_CAUSAL_LANGUAGE", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "insights-no-sessions",
+    "agent": "INSIGHTS",
+    "fixture": "insights-no-sessions",
+    "expectedRefusalCode": "NO_SESSIONS",
+    "fixtureData": {"sessions": 0},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "insights-no-matching-signal",
+    "agent": "INSIGHTS",
+    "fixture": "insights-no-matching-signal",
+    "expectedRefusalCode": "NO_RELEVANT_SIGNAL",
+    "fixtureData": {"sessions": 2, "registeredSignals": 0},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "insights-one-sided-comparison",
+    "agent": "INSIGHTS",
+    "fixture": "insights-one-sided-comparison",
+    "expectedRefusalCode": "NO_COMPARABLE_SIGNAL_GROUPS",
+    "fixtureData": {"sessions": 2, "signalGroups": 1},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "insights-no-conversions",
+    "agent": "INSIGHTS",
+    "fixture": "insights-no-conversions",
+    "expectedRefusalCode": "NO_CONVERSIONS",
+    "fixtureData": {"sessions": 2, "conversions": 0},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "experimentation-grounded",
+    "agent": "EXPERIMENTATION",
+    "fixture": "experimentation-grounded",
+    "fixtureData": {"sessions": 100, "signalGroups": 2, "objectiveDaysRemaining": 30},
+    "obligations": ["GROUNDED_EVIDENCE", "OBSERVATIONAL_LANGUAGE", "NO_CAUSAL_LANGUAGE", "SAMPLE_FLOOR", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "experimentation-insufficient-projected-traffic",
+    "agent": "EXPERIMENTATION",
+    "fixture": "experimentation-insufficient-projected-traffic",
+    "expectedRefusalCode": "INSUFFICIENT_PROJECTED_TRAFFIC",
+    "fixtureData": {"sessions": 2, "objectiveDaysRemaining": 1},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-zero-exposure-arm",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-zero-exposure-arm",
+    "expectedRefusalCode": "ZERO_EXPOSURES",
+    "fixtureData": {"arms": 2, "exposures": [0, 40]},
+    "obligations": ["EXPECTED_REFUSAL", "NO_LIFT_INSUFFICIENT", "NO_SHIP_INSUFFICIENT", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-subminimum-arm",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-subminimum-arm",
+    "expectedRefusalCode": "INSUFFICIENT_SAMPLE",
+    "fixtureData": {"arms": 2, "exposures": [29, 40]},
+    "obligations": ["EXPECTED_REFUSAL", "NO_LIFT_INSUFFICIENT", "NO_SHIP_INSUFFICIENT", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-multi-arm",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-multi-arm",
+    "expectedRefusalCode": "MULTI_ARM_UNSUPPORTED",
+    "fixtureData": {"arms": 3, "exposures": [40, 40, 40]},
+    "obligations": ["EXPECTED_REFUSAL", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-undefined-relative-lift",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-undefined-relative-lift",
+    "expectedRefusalCode": "RELATIVE_LIFT_UNDEFINED",
+    "fixtureData": {"arms": 2, "exposures": [40, 40], "controlConversions": 0, "treatmentConversions": 20},
+    "obligations": ["EXPECTED_REFUSAL", "NO_LIFT_INSUFFICIENT", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-grounded",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-grounded",
+    "fixtureData": {"arms": 2, "exposures": [40, 40], "primaryOutcome": "BOOKING_COMPLETED"},
+    "obligations": ["GROUNDED_EVIDENCE", "OBSERVATIONAL_LANGUAGE", "NO_CAUSAL_LANGUAGE", "READ_ONLY_TOOLS"]
+  }
+]

@@ -18,7 +18,7 @@ import java.util.function.Function;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AgentToolRegistry {
+public class AgentToolRegistry implements AgentToolProvider {
   private final ObjectMapper mapper;
   private final AgentToolInvocationRepository invocations;
   private final Map<String, AgentTool<?, ?>> tools;

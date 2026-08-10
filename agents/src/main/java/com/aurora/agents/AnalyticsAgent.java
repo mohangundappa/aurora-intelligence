@@ -19,9 +19,9 @@ public class AnalyticsAgent {
   private static final double TWO_SIDED_ALPHA_Z = 1.96;
   private static final double EIGHTY_PERCENT_POWER_Z = 0.84;
 
-  private final AgentToolRegistry tools;
+  private final AgentToolProvider tools;
 
-  public AnalyticsAgent(AgentToolRegistry tools) {
+  public AnalyticsAgent(AgentToolProvider tools) {
     this.tools = tools;
   }
 

@@ -1,6 +1,7 @@
 package com.aurora.agents;
 
-import com.aurora.objectives.MarketingObjective;
+import com.aurora.experiments.ExperimentProposal;
+import com.aurora.experiments.ExperimentProposalRepository;
 import com.aurora.objectives.WorkflowStage;
 import com.aurora.objectives.WorkflowStageTimingService;
 import java.math.BigDecimal;
@@ -11,33 +12,33 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public class DeterministicAgentRuntime
-    implements AgentRuntime<MarketingObjective, MarketingInsight> {
+public class DeterministicExperimentationRuntime
+    implements AgentRuntime<ExperimentationInput, ExperimentProposal> {
   private final AgentExecutionRepository executions;
-  private final MarketingInsightRepository insights;
+  private final ExperimentProposalRepository proposals;
   private final WorkflowStageTimingService timings;
-  private final InsightsAgent insightsAgent;
+  private final ExperimentationAgent agent;
 
-  public DeterministicAgentRuntime(
+  public DeterministicExperimentationRuntime(
       AgentExecutionRepository executions,
-      MarketingInsightRepository insights,
+      ExperimentProposalRepository proposals,
       WorkflowStageTimingService timings,
       AgentToolRegistry tools) {
     this.executions = executions;
-    this.insights = insights;
+    this.proposals = proposals;
     this.timings = timings;
-    this.insightsAgent = new InsightsAgent(tools);
+    this.agent = new ExperimentationAgent(tools);
   }
 
   @Override
-  public AgentRun<MarketingInsight> run(MarketingObjective objective, String correlationId) {
+  public AgentRun<ExperimentProposal> run(ExperimentationInput input, String correlationId) {
     UUID executionId = UUID.randomUUID();
     Instant startedAt = Instant.now();
     executions.save(
         new AgentExecution(
             executionId,
-            objective.objectiveId(),
-            "INSIGHTS",
+            input.objective().objectiveId(),
+            "EXPERIMENTATION",
             "deterministic",
             "1",
             startedAt,
@@ -52,16 +53,15 @@ public class DeterministicAgentRuntime
             List.of(),
             correlationId));
     try {
-      AgentResult<MarketingInsight> result =
-          insightsAgent.derive(objective, executionId, correlationId);
-      MarketingInsight insight = result.output();
+      AgentResult<ExperimentProposal> result = agent.propose(input, executionId, correlationId);
+      ExperimentProposal proposal = result.output();
       Instant completedAt = Instant.now();
-      if (insight != null) insights.save(insight);
+      if (proposal != null) proposals.save(proposal);
       AgentExecution execution =
           new AgentExecution(
               executionId,
-              objective.objectiveId(),
-              "INSIGHTS",
+              input.objective().objectiveId(),
+              "EXPERIMENTATION",
               "deterministic",
               "1",
               startedAt,
@@ -71,30 +71,30 @@ public class DeterministicAgentRuntime
               0,
               BigDecimal.ZERO,
               Duration.between(startedAt, completedAt).toMillis(),
-              result.refusal() == null ? insight : result.refusal(),
+              result.refusal() == null ? proposal : result.refusal(),
               List.of(),
               List.of(),
               correlationId);
       executions.save(execution);
       timings.record(
-          objective.objectiveId(),
-          WorkflowStage.INSIGHT_GENERATION,
+          input.objective().objectiveId(),
+          WorkflowStage.EXPERIMENT_DESIGN,
           execution.latencyMilliseconds(),
-          "deterministic-insights-agent",
+          "deterministic-experimentation-agent",
           startedAt,
           completedAt);
       return new AgentRun<>(
-          insight,
+          proposal,
           executions
               .findById(executionId)
               .orElseThrow(() -> new IllegalStateException("Agent execution was not persisted")));
     } catch (RuntimeException exception) {
       Instant completedAt = Instant.now();
-      AgentExecution execution =
+      executions.save(
           new AgentExecution(
               executionId,
-              objective.objectiveId(),
-              "INSIGHTS",
+              input.objective().objectiveId(),
+              "EXPERIMENTATION",
               "deterministic",
               "1",
               startedAt,
@@ -108,8 +108,7 @@ public class DeterministicAgentRuntime
               List.of(),
               List.of(
                   exception.getMessage() == null ? exception.toString() : exception.getMessage()),
-              correlationId);
-      executions.save(execution);
+              correlationId));
       throw exception;
     }
   }

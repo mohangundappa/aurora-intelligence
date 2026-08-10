@@ -21,19 +21,24 @@ public class InsightsAgent {
     this.tools = tools;
   }
 
-  public MarketingInsight derive(
+  public AgentResult<MarketingInsight> derive(
       MarketingObjective objective, UUID executionId, String correlationId) {
     AgentToolInvocation sessionsCall =
         tools.invoke("listSessions", AgentToolInputs.Empty.INSTANCE, executionId);
     List<EventRepository.SessionSummary> sessions =
         sessionsCall.resultAsList(EventRepository.SessionSummary.class);
-    if (sessions.isEmpty()) return null;
+    if (sessions.isEmpty()) {
+      return AgentResult.refused("NO_SESSIONS", "No sessions were available for the objective");
+    }
 
     AgentToolInvocation signalsCall =
         tools.invoke("listSignals", AgentToolInputs.Empty.INSTANCE, executionId);
     List<SignalDefinition> definitions = signalsCall.resultAsList(SignalDefinition.class);
     SignalDefinition relevantSignal = selectRelevantSignal(definitions, objective);
-    if (relevantSignal == null) return null;
+    if (relevantSignal == null) {
+      return AgentResult.refused(
+          "NO_RELEVANT_SIGNAL", "No registered signal matched the objective audience or goal");
+    }
 
     AgentToolInvocation calculationCall =
         tools.invoke(
@@ -49,13 +54,20 @@ public class InsightsAgent {
         observations.stream().filter(AgentToolResults.SignalObservation::signalPresent).toList();
     List<AgentToolResults.SignalObservation> withoutSignal =
         observations.stream().filter(observation -> !observation.signalPresent()).toList();
-    if (withSignal.isEmpty() || withoutSignal.isEmpty()) return null;
+    if (withSignal.isEmpty() || withoutSignal.isEmpty()) {
+      return AgentResult.refused(
+          "NO_COMPARABLE_SIGNAL_GROUPS",
+          "Evidence did not contain sessions on both sides of the signal comparison");
+    }
 
     long convertedWithSignal =
         withSignal.stream().filter(AgentToolResults.SignalObservation::converted).count();
     long convertedWithoutSignal =
         withoutSignal.stream().filter(AgentToolResults.SignalObservation::converted).count();
-    if (convertedWithSignal + convertedWithoutSignal == 0) return null;
+    if (convertedWithSignal + convertedWithoutSignal == 0) {
+      return AgentResult.refused(
+          "NO_CONVERSIONS", "Evidence contained no completed target-KPI conversions");
+    }
 
     double withSignalRate = (double) convertedWithSignal / withSignal.size();
     double withoutSignalRate = (double) convertedWithoutSignal / withoutSignal.size();
@@ -76,28 +88,29 @@ public class InsightsAgent {
     metrics.put("conversionRateWithSignal", withSignalRate);
     metrics.put("conversionRateWithoutSignal", withoutSignalRate);
     metrics.put("conversionRateDifference", withSignalRate - withoutSignalRate);
-    return new MarketingInsight(
-        UUID.randomUUID(),
-        objective.objectiveId(),
-        relevantSignal.name() + " conversion comparison",
-        "In the observed data, sessions with "
-            + relevantSignal.name()
-            + " showed "
-            + direction
-            + " "
-            + objective.targetKpi()
-            + " conversion than sessions without it ("
-            + formatPercent(withSignalRate)
-            + " vs "
-            + formatPercent(withoutSignalRate)
-            + "); this observed association should be tested by an experiment.",
-        metrics,
-        List.of(
-            sessionsCall.resultReference(),
-            signalsCall.resultReference(),
-            calculationCall.resultReference()),
-        correlationId,
-        Instant.now());
+    return AgentResult.success(
+        new MarketingInsight(
+            UUID.randomUUID(),
+            objective.objectiveId(),
+            relevantSignal.name() + " conversion comparison",
+            "In the observed data, sessions with "
+                + relevantSignal.name()
+                + " showed "
+                + direction
+                + " "
+                + objective.targetKpi()
+                + " conversion than sessions without it ("
+                + formatPercent(withSignalRate)
+                + " vs "
+                + formatPercent(withoutSignalRate)
+                + "); this observed association should be tested by an experiment.",
+            metrics,
+            List.of(
+                sessionsCall.resultReference(),
+                signalsCall.resultReference(),
+                calculationCall.resultReference()),
+            correlationId,
+            Instant.now()));
   }
 
   private SignalDefinition selectRelevantSignal(

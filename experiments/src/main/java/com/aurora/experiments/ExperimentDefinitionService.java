@@ -1,6 +1,8 @@
 package com.aurora.experiments;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class ExperimentDefinitionService {
@@ -17,5 +19,21 @@ public class ExperimentDefinitionService {
     registry.assertCanWrite(definition.id());
     repository.save(definition);
     registry.refreshAfterWrite(definition.id());
+  }
+
+  public void saveAfterCommit(ExperimentDefinition definition) {
+    registry.assertCanWrite(definition.id());
+    repository.save(definition);
+    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+      registry.refreshAfterWrite(definition.id());
+      return;
+    }
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            registry.refreshAfterWrite(definition.id());
+          }
+        });
   }
 }

@@ -43,8 +43,22 @@ score will look unchanged.
 ## Lifecycle UI gotchas
 - The lifecycle page does not reliably re-render after a transition; press F5
   after each click or you will act on stale state.
-- Model transitions have no legality check (unlike signal transitions), and
-  approving the currently-deployed version leaves zero DEPLOYED versions, which
+- **Model transitions are now legality-checked.** A fresh reset leaves
+  `booking-intent` 1.0 DEPLOYED / 2.0 TESTED, and clicking "Deploy / rollback"
+  on a TESTED version returns **409** (`Aurora API request failed: 409`) with no
+  state change. The demo path is **Approve first, then Deploy / rollback**. If a
+  click appears to do nothing, check `model_audit` — an empty table means the
+  transition never happened rather than that the UI failed to refresh.
+- **Every successful model transition may still render a raw error banner**
+  (`Failed to execute 'json' on 'Response': Unexpected end of JSON input`) because
+  the transition endpoints return an empty body while the client parses JSON. The
+  transition itself succeeds — verify the status pills / `model_audit`, not the
+  banner. This is presenter-visible; flag it rather than trusting the banner.
+- Deploying a model does not evict the Redis context cache: wait >30s (TTL) before
+  reloading a console session, or the old score persists. Useful clean signal to
+  demo on a low-event session (e.g. `demo-identity-stitch`): booking-intent reads
+  **28** under 1.0 (bias 28) and **18** under 2.0 (bias 18).
+- Approving the currently-deployed version can leave zero DEPLOYED versions, which
   makes `/api/console/sessions/{id}` return 500 and the console show
   "No journey is available yet". Recovery: click Deploy / rollback on 1.0, or
   `update model_versions set status='DEPLOYED' where model_name='booking-intent' and version='1.0';`
@@ -106,6 +120,28 @@ no per-objective error isolation, so any single bad row blanks the entire view.
   refusal — expect that mismatch and check whether it has been fixed.
 - An execution with `output: null` renders the literal text `null` in its
   disclosure; worth checking after any change to the executions section.
+
+## Recording a client-ready walkthrough
+- Running order that works well: site journey → `/console` (events, signals, NBA)
+  → `/console?session=demo-identity-stitch` (identity timeline) →
+  `/console/lifecycle` (approve, deploy, roll back) → `/console/experiments` →
+  `/console/workforce` (loop, then the refusal objective).
+- `/console/workforce` renders a global **Provider activation attempts** list
+  *before* the objective cards. On a fresh seed that is ~109 rows of raw JSON, so
+  the page opens on ~10 screens of noise. Scroll past it (or jump with `End` then
+  scroll up) before narrating; expect to flag it as a presentation defect.
+- The refusal objective (`demo-workforce-refusal`) renders **above** the complete
+  loop objective (`demo-workforce-miami`) — order objective cards by intent, not
+  by scroll position.
+- **Do not trust the numbers in `docs/demo-script.md`.** The workforce experiment
+  ID gets a random suffix on every reset and assignment is a hash of
+  `subject + ":" + experimentId`, so the control/personalized split varies per
+  reset (seen: 45/55 rather than the documented 50/50, giving 11.1% vs 12.7%
+  instead of 10.0% vs 14.0%). Read the on-screen values and report the mismatch.
+- A stale login persists in browser storage across `--reset`, so "This browser
+  session" can show a named member (`demo-aurora-member`, Aurora Circle) while the
+  identity timeline correctly says "No identity link has been recorded." Clear
+  site data first if you want a genuinely anonymous opening.
 
 ## Regression sweep for the customer journey
 Site: `/` search Miami → dates → 2 adults / 2 children → `/results` (a

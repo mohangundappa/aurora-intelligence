@@ -107,4 +107,29 @@ class MarketingObjectiveIntegrationTest {
         .andExpect(jsonPath("$.executionId").value(executionId))
         .andExpect(jsonPath("$.toolCalls").isArray());
   }
+
+  @Test
+  void invalidObjectiveReturnsBadRequestWithValidationMessage() throws Exception {
+    mvc.perform(
+            post("/api/objectives")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "objectiveId": "invalid-objective",
+                      "name": "",
+                      "description": "Invalid objective",
+                      "businessGoal": "Increase revenue",
+                      "targetKpi": "BOOKING_COMPLETED",
+                      "targetValue": 25,
+                      "targetAudience": "Miami families",
+                      "constraints": {},
+                      "startDate": "2026-03-31",
+                      "endDate": "2026-01-01",
+                      "createdBy": "integration-test"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("name is required"));
+  }
 }

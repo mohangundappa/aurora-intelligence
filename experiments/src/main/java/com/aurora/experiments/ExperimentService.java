@@ -3,6 +3,10 @@ package com.aurora.experiments;
 import com.aurora.common.CdpProfile;
 import com.aurora.common.Decision;
 import com.aurora.common.EventEnvelope;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +22,7 @@ public class ExperimentService {
 
   public ExperimentPerformance performance(String experimentId) {
     ExperimentDefinition definition = registry.definition(experimentId);
-    java.util.List<ExperimentPerformance.Variant> variants =
+    List<ExperimentPerformance.Variant> variants =
         definition.variants().stream().map(variant -> variant(definition, variant.name())).toList();
     return new ExperimentPerformance(
         experimentId,
@@ -33,8 +37,42 @@ public class ExperimentService {
             + " exposed subjects per variant are required before lift or significance is presented.");
   }
 
-  public java.util.List<ExperimentDefinition> definitions() {
+  public List<ExperimentDefinition> definitions() {
     return registry.definitions();
+  }
+
+  public List<Exposure> exposures(String experimentId) {
+    return jdbc.query(
+        """
+        select experiment_id,variant,subject_id,session_id,correlation_id,exposed_at
+        from experiment_exposures where experiment_id=? order by exposed_at
+        """,
+        (result, row) ->
+            new Exposure(
+                result.getString("experiment_id"),
+                result.getString("variant"),
+                result.getString("subject_id"),
+                result.getString("session_id"),
+                result.getString("correlation_id"),
+                result.getTimestamp("exposed_at").toInstant()),
+        experimentId);
+  }
+
+  public List<Outcome> outcomes(String experimentId) {
+    return jdbc.query(
+        """
+        select o.event_id,o.event_name,o.correlation_id,o.occurred_at
+        from experiment_outcomes o
+        join experiment_exposures x on x.correlation_id=o.correlation_id
+        where x.experiment_id=? order by o.occurred_at
+        """,
+        (result, row) ->
+            new Outcome(
+                result.getObject("event_id", java.util.UUID.class),
+                result.getString("event_name"),
+                result.getString("correlation_id"),
+                result.getTimestamp("occurred_at").toInstant()),
+        experimentId);
   }
 
   public void recordExposure(Decision decision, CdpProfile profile) {
@@ -67,7 +105,7 @@ public class ExperimentService {
         event.eventId(),
         event.eventName(),
         event.correlationId(),
-        java.sql.Timestamp.from(event.eventTime()));
+        Timestamp.from(event.eventTime()));
   }
 
   private ExperimentPerformance.Variant variant(ExperimentDefinition definition, String variant) {
@@ -124,4 +162,14 @@ public class ExperimentService {
         || registry.definitions().stream()
             .anyMatch(definition -> definition.primaryOutcomeEvent().equals(eventName));
   }
+
+  public record Exposure(
+      String experimentId,
+      String variant,
+      String subjectId,
+      String sessionId,
+      String correlationId,
+      Instant exposedAt) {}
+
+  public record Outcome(UUID eventId, String eventName, String correlationId, Instant occurredAt) {}
 }

@@ -117,6 +117,53 @@ class ExperimentationAgentTest {
   }
 
   @Test
+  void withholdsRateBasedPlanningInputsWhenComparisonGroupsAreTooSmall() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    UUID executionId = UUID.randomUUID();
+    List<EventRepository.SessionSummary> sessions =
+        IntStream.range(0, 50)
+            .mapToObj(
+                index ->
+                    new EventRepository.SessionSummary(
+                        "s" + index, null, null, null, Instant.now()))
+            .toList();
+    List<String> sessionIds =
+        sessions.stream().map(EventRepository.SessionSummary::sessionId).toList();
+    when(tools.invoke("listSessions", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSessions", sessions));
+    when(tools.invoke("listSignals", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSignals", List.of(signal())));
+    when(tools.invoke(
+            "calculateSignal",
+            new AgentToolInputs.SignalCalculation(
+                "weekend-getaway-affinity", "BOOKING_COMPLETED", sessionIds),
+            executionId))
+        .thenReturn(
+            invocation(
+                "calculateSignal",
+                IntStream.range(0, 50)
+                    .mapToObj(
+                        index ->
+                            new AgentToolResults.SignalObservation(
+                                "s" + index, index < 25, index < 25 ? 1 : 0, index < 25))
+                    .toList()));
+
+    AgentResult<ExperimentProposal> result =
+        new ExperimentationAgent(tools)
+            .propose(
+                new ExperimentationInput(input().objective(), input().insight()),
+                executionId,
+                "correlation");
+
+    assertThat(result.refusal()).isNull();
+    assertThat(result.output().expectedEffect()).isEqualByComparingTo(BigDecimal.ZERO);
+    assertThat(result.output().minimumExposuresPerVariant()).isEqualTo(30);
+    assertThat(result.output().reasoning())
+        .contains("observed baseline conversion rate and expected effect are withheld")
+        .doesNotContain("1.0000");
+  }
+
+  @Test
   void refusesWhenProjectedTrafficCannotFillTheRandomizedArms() {
     AgentToolRegistry tools = mock(AgentToolRegistry.class);
     UUID executionId = UUID.randomUUID();

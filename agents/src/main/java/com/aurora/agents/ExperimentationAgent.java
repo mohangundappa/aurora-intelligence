@@ -95,21 +95,30 @@ public class ExperimentationAgent {
 
     double withRate = (double) convertedWith / withSignal.size();
     double withoutRate = (double) convertedWithout / withoutSignal.size();
-    double expectedEffect = Math.abs(withRate - withoutRate);
-    if (expectedEffect <= 0d) {
+    double observedEffect = Math.abs(withRate - withoutRate);
+    if (observedEffect <= 0d) {
       return AgentResult.refused(
           "ZERO_OBSERVED_EFFECT", "Observed conversion rates did not support an expected effect");
     }
-    double projectedRate = Math.min(1d, withoutRate + expectedEffect);
-    double pooledRate = (withoutRate + projectedRate) / 2d;
-    double standardError =
-        TWO_SIDED_ALPHA_Z * Math.sqrt(2d * pooledRate * (1d - pooledRate))
-            + POWER_80_Z
-                * Math.sqrt(
-                    withoutRate * (1d - withoutRate) + projectedRate * (1d - projectedRate));
-    int derivedMinimum =
-        (int) Math.ceil((standardError * standardError) / (expectedEffect * expectedEffect));
-    int minimumExposures = Math.max((int) PLATFORM_MINIMUM_EXPOSURES, derivedMinimum);
+    boolean ratesComparable =
+        withSignal.size() >= PLATFORM_MINIMUM_EXPOSURES
+            && withoutSignal.size() >= PLATFORM_MINIMUM_EXPOSURES;
+    double expectedEffect = ratesComparable ? observedEffect : 0d;
+    int minimumExposures;
+    if (ratesComparable) {
+      double projectedRate = Math.min(1d, withoutRate + observedEffect);
+      double pooledRate = (withoutRate + projectedRate) / 2d;
+      double standardError =
+          TWO_SIDED_ALPHA_Z * Math.sqrt(2d * pooledRate * (1d - pooledRate))
+              + POWER_80_Z
+                  * Math.sqrt(
+                      withoutRate * (1d - withoutRate) + projectedRate * (1d - projectedRate));
+      int derivedMinimum =
+          (int) Math.ceil((standardError * standardError) / (observedEffect * observedEffect));
+      minimumExposures = Math.max((int) PLATFORM_MINIMUM_EXPOSURES, derivedMinimum);
+    } else {
+      minimumExposures = (int) PLATFORM_MINIMUM_EXPOSURES;
+    }
     LocalDate today = LocalDate.now(ZoneOffset.UTC);
     LocalDate elapsedEnd =
         today.isBefore(input.objective().endDate()) ? today : input.objective().endDate();
@@ -141,6 +150,15 @@ public class ExperimentationAgent {
         humanReadableExperimentId(
             input.objective().name(), signalName, input.objective().objectiveId());
     String actionSlug = slug(input.objective().targetKpi());
+    String samplePlanningReasoning =
+        ratesComparable
+            ? "The sample threshold is derived from the observed baseline conversion rate "
+                + formatRate(withoutRate)
+                + " and expected effect "
+                + formatRate(observedEffect)
+                + " using a conventional two-sided 5% significance level and 80% power, then floored at the platform minimum of 30 per arm. "
+            : "The comparison groups are below the platform minimum of 30 sessions, so the observed baseline conversion rate and expected effect are withheld rather than presented as planning evidence. "
+                + "The proposal uses the platform minimum of 30 exposures per arm. ";
     return AgentResult.success(
         new ExperimentProposal(
             UUID.randomUUID(),
@@ -173,12 +191,8 @@ public class ExperimentationAgent {
                 + " targeted by "
                 + signalName
                 + "; the arms are randomized existing and personalized experiences rather than signal-defined segments. "
-                + "A 50/50 split is used to preserve comparable randomized arms. The sample threshold is derived "
-                + "from the observed baseline conversion rate "
-                + formatRate(withoutRate)
-                + " and expected effect "
-                + formatRate(expectedEffect)
-                + " using a conventional two-sided 5% significance level and 80% power, then floored at the platform minimum of 30 per arm. "
+                + "A 50/50 split is used to preserve comparable randomized arms. "
+                + samplePlanningReasoning
                 + "Feasibility projects the observed "
                 + formatRate(sessionsPerDay)
                 + " sessions per day across the elapsed "

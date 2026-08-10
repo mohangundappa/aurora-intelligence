@@ -68,11 +68,11 @@ class ExperimentationAgentTest {
                                 "s" + index,
                                 index < 50,
                                 index < 50 ? 1 : 0,
-                                index < 50 || index >= 75))
+                                (index < 50 || index >= 75)))
                     .toList()));
 
     ExperimentProposal proposal =
-        new ExperimentationAgent(tools).propose(input(), executionId, "correlation");
+        new ExperimentationAgent(tools).propose(input(), executionId, "correlation").output();
 
     assertThat(proposal).isNotNull();
     assertThat(proposal.variants())
@@ -84,6 +84,8 @@ class ExperimentationAgentTest {
     assertThat(proposal.targetAudience()).isEqualTo("weekend leisure travelers");
     assertThat(proposal.targetingSignal()).isEqualTo("weekend-getaway-affinity");
     assertThat(proposal.experimentId()).contains("weekend-leisure-booking-conversion");
+    assertThat(proposal.reasoning())
+        .contains("5% significance", "80% power", "0.5000", "0.5000", "sessions per day");
   }
 
   @Test
@@ -104,8 +106,91 @@ class ExperimentationAgentTest {
                 .propose(
                     new ExperimentationInput(input().objective(), insight),
                     UUID.randomUUID(),
-                    "correlation"))
-        .isNull();
+                    "correlation")
+                .refusal())
+        .extracting(AgentRefusal::code)
+        .isEqualTo("NO_USABLE_SIGNAL");
+  }
+
+  @Test
+  void refusesWhenProjectedTrafficCannotFillTheRandomizedArms() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    UUID executionId = UUID.randomUUID();
+    List<EventRepository.SessionSummary> sessions =
+        IntStream.range(0, 100)
+            .mapToObj(
+                index ->
+                    new EventRepository.SessionSummary(
+                        "s" + index, null, null, null, Instant.now()))
+            .toList();
+    List<String> sessionIds =
+        sessions.stream().map(EventRepository.SessionSummary::sessionId).toList();
+    when(tools.invoke("listSessions", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSessions", sessions));
+    when(tools.invoke("listSignals", AgentToolInputs.Empty.INSTANCE, executionId))
+        .thenReturn(invocation("listSignals", List.of(signal())));
+    when(tools.invoke(
+            "calculateSignal",
+            new AgentToolInputs.SignalCalculation(
+                "weekend-getaway-affinity", "BOOKING_COMPLETED", sessionIds),
+            executionId))
+        .thenReturn(
+            invocation(
+                "calculateSignal",
+                IntStream.range(0, 100)
+                    .mapToObj(
+                        index ->
+                            new AgentToolResults.SignalObservation(
+                                "s" + index,
+                                index < 50,
+                                index < 50 ? 1 : 0,
+                                (index < 30 || (index >= 50 && index < 75))))
+                    .toList()));
+
+    AgentResult<ExperimentProposal> result =
+        new ExperimentationAgent(tools)
+            .propose(
+                new ExperimentationInput(
+                    new MarketingObjective(
+                        "objective",
+                        "Increase weekend leisure booking conversion",
+                        "Description",
+                        "Increase conversion",
+                        "BOOKING_COMPLETED",
+                        BigDecimal.valueOf(0.5),
+                        "weekend leisure travelers",
+                        Map.of(),
+                        LocalDate.now(),
+                        LocalDate.now(),
+                        MarketingObjective.Status.ACTIVE,
+                        "analyst",
+                        Instant.now()),
+                    input().insight()),
+                executionId,
+                "correlation");
+
+    assertThat(result.refusal())
+        .extracting(AgentRefusal::code)
+        .isEqualTo("INSUFFICIENT_PROJECTED_TRAFFIC");
+    assertThat(result.refusal().details()).containsKeys("observedSessionsPerDay", "remainingDays");
+  }
+
+  private SignalDefinition signal() {
+    return new SignalDefinition(
+        "weekend-getaway-affinity",
+        "1",
+        List.of("DESTINATION_SEARCHED"),
+        SignalDefinition.CalculationType.AGGREGATION,
+        "real-time",
+        "30d",
+        "0-100",
+        "standard",
+        "15m",
+        "24h",
+        false,
+        "test",
+        SignalDefinition.LifecycleStatus.DEPLOYED,
+        "test");
   }
 
   private ExperimentationInput input() {

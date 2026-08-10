@@ -144,7 +144,12 @@ public class ExperimentRegistry {
   // Keep recovery off customer-facing threads and throttle retries during an outage.
   private void scheduleDatabaseRefresh() {
     if (!databaseViewIncomplete || !refreshScheduled.compareAndSet(false, true)) return;
-    refreshScheduler.schedule(this::runBackgroundRefresh, DATABASE_REFRESH_RETRY_DELAY);
+    try {
+      refreshScheduler.schedule(this::runBackgroundRefresh, DATABASE_REFRESH_RETRY_DELAY);
+    } catch (RuntimeException exception) {
+      refreshScheduled.set(false);
+      log.error("Unable to schedule database experiment definition recovery", exception);
+    }
   }
 
   private void runBackgroundRefresh() {

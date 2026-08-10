@@ -43,7 +43,7 @@ class InsightsAgentTest {
     stubSignal(tools, observations(true, false));
 
     MarketingInsight insight =
-        new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-1");
+        new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-1").output();
 
     assertThat(insight).isNotNull();
     assertThat(insight.finding())
@@ -75,8 +75,8 @@ class InsightsAgentTest {
         .thenReturn(invocation("listSignals", "result:signals", List.of(WEEKEND_SIGNAL)));
 
     InsightsAgent agent = new InsightsAgent(tools);
-    MarketingInsight first = agent.derive(objective(), EXECUTION_ID, "correlation-1");
-    MarketingInsight second = agent.derive(objective(), EXECUTION_ID, "correlation-2");
+    MarketingInsight first = agent.derive(objective(), EXECUTION_ID, "correlation-1").output();
+    MarketingInsight second = agent.derive(objective(), EXECUTION_ID, "correlation-2").output();
 
     assertThat(first.finding()).contains("higher", "association", "tested by an experiment");
     assertThat(second.finding()).contains("lower", "association", "tested by an experiment");
@@ -90,8 +90,10 @@ class InsightsAgentTest {
     stubSessions(tools);
     stubSignal(tools, List.of(observation("session-1", true, true)));
 
-    assertThat(new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-2"))
-        .isNull();
+    assertThat(
+            new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-2").refusal())
+        .extracting(AgentRefusal::code)
+        .isEqualTo("NO_COMPARABLE_SIGNAL_GROUPS");
   }
 
   @Test
@@ -100,8 +102,10 @@ class InsightsAgentTest {
     stubSessions(tools);
     stubSignal(tools, observations(false, false));
 
-    assertThat(new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-3"))
-        .isNull();
+    assertThat(
+            new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-3").refusal())
+        .extracting(AgentRefusal::code)
+        .isEqualTo("NO_CONVERSIONS");
   }
 
   private void stubSessions(AgentToolRegistry tools) {

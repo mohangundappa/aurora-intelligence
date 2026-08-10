@@ -53,7 +53,8 @@ public class DeterministicExperimentationRuntime
             List.of(),
             correlationId));
     try {
-      ExperimentProposal proposal = agent.propose(input, executionId, correlationId);
+      AgentResult<ExperimentProposal> result = agent.propose(input, executionId, correlationId);
+      ExperimentProposal proposal = result.output();
       Instant completedAt = Instant.now();
       if (proposal != null) proposals.save(proposal);
       AgentExecution execution =
@@ -70,7 +71,7 @@ public class DeterministicExperimentationRuntime
               0,
               BigDecimal.ZERO,
               Duration.between(startedAt, completedAt).toMillis(),
-              proposal,
+              result.refusal() == null ? proposal : result.refusal(),
               List.of(),
               List.of(),
               correlationId);

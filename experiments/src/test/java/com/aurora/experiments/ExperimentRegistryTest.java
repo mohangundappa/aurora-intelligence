@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -204,6 +205,30 @@ class ExperimentRegistryTest {
     registry.shutdownRefreshScheduler();
 
     verify(scheduler).shutdown();
+  }
+
+  @Test
+  void rejectedRecoverySchedulingClearsLatchAndPreservesWriteDiagnostics() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicInteger attempts = new AtomicInteger();
+    when(repository.findAll())
+        .thenThrow(new DataAccessResourceFailureException("database unavailable"));
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> {
+              attempts.incrementAndGet();
+              throw new java.util.concurrent.RejectedExecutionException("scheduler stopped");
+            });
+
+    assertThat(attempts).hasValue(1);
+    assertThatThrownBy(() -> registry.refreshAfterWrite("new-experiment"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("persisted but is not yet in the serving view");
+    assertThat(attempts).hasValue(2);
   }
 
   private ExperimentDefinition definition(String id) {

@@ -52,7 +52,9 @@ public class DeterministicAgentRuntime
             List.of(),
             correlationId));
     try {
-      MarketingInsight insight = insightsAgent.derive(objective, executionId, correlationId);
+      AgentResult<MarketingInsight> result =
+          insightsAgent.derive(objective, executionId, correlationId);
+      MarketingInsight insight = result.output();
       Instant completedAt = Instant.now();
       if (insight != null) insights.save(insight);
       AgentExecution execution =
@@ -69,7 +71,7 @@ public class DeterministicAgentRuntime
               0,
               BigDecimal.ZERO,
               Duration.between(startedAt, completedAt).toMillis(),
-              insight,
+              result.refusal() == null ? insight : result.refusal(),
               List.of(),
               List.of(),
               correlationId);

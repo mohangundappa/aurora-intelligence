@@ -101,6 +101,61 @@ class AgentEvaluationTest {
         .contains("refusal scenario must declare and return expected refusal code");
   }
 
+  @Test
+  void syntheticWriteToolIsExcludedAndFailsReadOnlyObligation() {
+    AgentTool<String, String> readTool = tool(true);
+    AgentTool<String, String> writeTool = tool(false);
+    AgentToolRegistry registry =
+        new AgentToolRegistry(Map.of("synthetic-read", readTool, "synthetic-write", writeTool));
+
+    assertThat(registry.readOnlyToolNames()).containsExactly("synthetic-read");
+    AgentEvaluationScenario scenario =
+        new AgentEvaluationScenario(
+            "synthetic-write", "ANALYTICS", "fixture", null, List.of("READ_ONLY_TOOLS"), Map.of());
+    AgentEvaluationReport report =
+        AgentEvaluationHarness.run(
+            List.of(scenario),
+            ignored ->
+                new AgentEvaluationRun(
+                    new Object(),
+                    null,
+                    List.of("synthetic-write"),
+                    List.of(),
+                    "observed",
+                    true,
+                    false,
+                    "ITERATE",
+                    null),
+            registry.readOnlyToolNames());
+
+    assertThat(report.failed()).isEqualTo(1);
+    assertThat(report.summary()).contains("read-only allowlist");
+  }
+
+  private AgentTool<String, String> tool(boolean readOnly) {
+    return new AgentTool<>() {
+      @Override
+      public String name() {
+        return readOnly ? "synthetic-read" : "synthetic-write";
+      }
+
+      @Override
+      public Class<String> inputType() {
+        return String.class;
+      }
+
+      @Override
+      public boolean readOnly() {
+        return readOnly;
+      }
+
+      @Override
+      public String execute(String input) {
+        return input;
+      }
+    };
+  }
+
   private AgentEvaluationRun runDeterministicRuntime(AgentEvaluationScenario scenario) {
     EvaluationTools tools = new EvaluationTools(scenario.fixture());
     return switch (scenario.agent()) {

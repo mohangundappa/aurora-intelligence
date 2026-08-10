@@ -65,7 +65,20 @@ class AgentToolRegistryTest {
             "deployExperiment",
             "retireExperiment");
     assertThat(registry.readOnlyToolNames())
-        .containsExactlyInAnyOrderElementsOf(registry.toolNames());
+        .containsExactlyInAnyOrder(
+            "searchEvents",
+            "listSessions",
+            "getCustomerContext",
+            "listSignals",
+            "getSignalDefinition",
+            "calculateSignal",
+            "listModels",
+            "evaluateModel",
+            "evaluateDecision",
+            "listExperiments",
+            "getExperimentPerformance",
+            "getExperimentExposures",
+            "getExperimentOutcomes");
   }
 
   @Test

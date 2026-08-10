@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.aurora.common.martech.ActivationResult;
+import com.aurora.common.martech.AudienceActivation;
+import com.aurora.common.martech.CampaignRegistration;
 import com.aurora.objectives.WorkflowStageTimingService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -103,6 +106,32 @@ class ExperimentProposalServiceTest {
             ExperimentProposal.GovernanceState.ACTIVATED,
             "operator",
             "activate");
+  }
+
+  @Test
+  void approvedActivationRegistersAudienceAndCampaignThroughProviderSeams() {
+    AudienceActivation audiences = mock(AudienceActivation.class);
+    CampaignRegistration campaigns = mock(CampaignRegistration.class);
+    when(audiences.activate(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(acceptedResult("audience"));
+    when(campaigns.register(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(acceptedResult("campaign"));
+    ExperimentProposalService providerService =
+        new ExperimentProposalService(repository, definitions, timings, audiences, campaigns);
+    UUID id = UUID.randomUUID();
+    ExperimentProposal approved = proposal(ExperimentProposal.GovernanceState.APPROVED, id);
+    when(repository.findById(id))
+        .thenReturn(java.util.Optional.of(approved), java.util.Optional.of(approved));
+
+    providerService.activate(id, "operator", "approved rollout configuration");
+
+    verify(audiences).activate(org.mockito.ArgumentMatchers.any());
+    verify(campaigns).register(org.mockito.ArgumentMatchers.any());
+  }
+
+  private ActivationResult acceptedResult(String destination) {
+    return new ActivationResult(
+        destination, "key", ActivationResult.Status.ACCEPTED, 1, 0, null, java.util.Map.of());
   }
 
   private ExperimentProposal proposal(ExperimentProposal.GovernanceState state) {

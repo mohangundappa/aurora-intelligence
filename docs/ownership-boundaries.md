@@ -66,6 +66,33 @@ Production must authenticate and authorize governance endpoints (for example
 through client IT's SSO/RBAC) before treating human approval as an authorization
 gate. That authentication mechanism is intentionally outside this showcase.
 
+## Provider-neutral MarTech hand-off
+
+Aurora uses provider-neutral contracts for the capabilities it hands to a
+marketing platform:
+
+| Interface | CDP/marketing platform provides | Implementation partner configures | Aurora adds | Simulator behavior |
+|---|---|---|---|---|
+| `AudienceActivation` | Audience destination, consent/purpose enforcement, delivery semantics | Audience schema, identity namespace, destination and eligibility mapping | Governed audience definition and idempotent hand-off | Deterministic accepted, rejected, or partial result |
+| `OfferDelivery` | Channel/content destination, suppression and delivery controls | Payload mapping, channel credentials and provider contract tests | Consent-gated decision hand-off, correlation and reason codes | Deterministic delivery result with opaque provider metadata |
+| `CampaignRegistration` | Campaign/journey registration and activation lifecycle | Campaign schema, destination mapping and operational limits | Human-approved experiment artifact registration | Deterministic idempotent registration result |
+
+Each request carries a destination identity, an opaque payload contract and an
+idempotency key. Each result carries accepted/rejected/partial status, counts,
+an explicit rejection reason where applicable, and opaque provider metadata.
+Aurora never treats the simulated metadata as a vendor contract.
+
+Consent and eligibility are checked before a subject-level request reaches
+`OfferDelivery`; a denied decision remains the safe default and does not call
+the interface. Approved experiment activation remains a human governance
+transition. These interfaces do not grant an agent authority to approve,
+deploy, retire, or mutate a decision policy.
+
+The simulated implementations prove only that Aurora's adapter seam, payload
+shape, idempotency behavior, and failure representation are exercised locally.
+They do not prove provider authentication, rate limits, asynchronous delivery
+semantics, provider quirks, data residency, or contract stability over time.
+
 ## Migration/rollout RACI
 
 | Activity | CDP vendor | Partner | Our team | Client IT | Marketing |

@@ -1,0 +1,77 @@
+package com.aurora.cdp;
+
+import com.aurora.common.martech.ActivationRequest;
+import com.aurora.common.martech.ActivationResult;
+import com.aurora.common.martech.AudienceActivation;
+import com.aurora.common.martech.CampaignRegistration;
+import com.aurora.common.martech.OfferDelivery;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import org.springframework.stereotype.Service;
+
+@Service
+public class SimulatedMarTechAdapter
+    implements AudienceActivation, OfferDelivery, CampaignRegistration {
+  private final ConcurrentMap<String, ActivationResult> results = new ConcurrentHashMap<>();
+
+  @Override
+  public ActivationResult activate(ActivationRequest request) {
+    return submit("AUDIENCE", request);
+  }
+
+  @Override
+  public ActivationResult deliver(ActivationRequest request) {
+    return submit("OFFER", request);
+  }
+
+  @Override
+  public ActivationResult register(ActivationRequest request) {
+    return submit("CAMPAIGN", request);
+  }
+
+  private ActivationResult submit(String operation, ActivationRequest request) {
+    return results.computeIfAbsent(
+        request.idempotencyKey(),
+        ignored -> {
+          String simulation =
+              String.valueOf(request.payload().getOrDefault("simulation", "ACCEPTED"));
+          ActivationResult.Status status =
+              switch (simulation.toUpperCase()) {
+                case "REJECTED" -> ActivationResult.Status.REJECTED;
+                case "PARTIAL" -> ActivationResult.Status.PARTIAL;
+                default -> ActivationResult.Status.ACCEPTED;
+              };
+          int requested = requestedCount(request);
+          int accepted = status == ActivationResult.Status.REJECTED ? 0 : requested;
+          int rejected = status == ActivationResult.Status.ACCEPTED ? 0 : requested - accepted;
+          if (status == ActivationResult.Status.PARTIAL) {
+            accepted = Math.max(1, requested / 2);
+            rejected = requested - accepted;
+          }
+          String reason =
+              status == ActivationResult.Status.REJECTED
+                  ? String.valueOf(
+                      request
+                          .payload()
+                          .getOrDefault("rejectionReason", "simulated provider rejection"))
+                  : status == ActivationResult.Status.PARTIAL
+                      ? "simulated provider accepted only part of the request"
+                      : null;
+          return new ActivationResult(
+              request.destinationId(),
+              request.idempotencyKey(),
+              status,
+              accepted,
+              rejected,
+              reason,
+              Map.of("provider", "simulated", "operation", operation));
+        });
+  }
+
+  private int requestedCount(ActivationRequest request) {
+    Object requested = request.payload().get("requestedCount");
+    if (requested instanceof Number number && number.intValue() > 0) return number.intValue();
+    return 1;
+  }
+}

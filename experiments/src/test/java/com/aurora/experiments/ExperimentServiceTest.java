@@ -124,6 +124,57 @@ class ExperimentServiceTest {
   }
 
   @Test
+  void agentProposedVariantNamesCanBeRecordedAsExposures() {
+    JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    ExperimentRegistry registry = mock(ExperimentRegistry.class);
+    String control = "control-existing-booking-completed-experience";
+    String treatment = "personalized-booking-completed-experience";
+    when(registry.definition("agent-experiment"))
+        .thenReturn(
+            new ExperimentDefinition(
+                "agent-experiment",
+                "Agent experiment",
+                "description",
+                List.of(
+                    new ExperimentDefinition.Variant(control, 50),
+                    new ExperimentDefinition.Variant(treatment, 50)),
+                "BOOKING_COMPLETED",
+                30,
+                ExperimentDefinition.LifecycleStatus.DEPLOYED));
+
+    new ExperimentService(jdbc, registry)
+        .recordExposure(
+            new Decision(
+                "SHOW_EXPERIENCE",
+                "SHOW_EXPERIENCE",
+                "web",
+                List.of(),
+                "1.0",
+                "agent-experiment",
+                "experience",
+                "session",
+                "correlation"),
+            new CdpProfile(
+                "anonymous",
+                null,
+                new CdpProfile.Identity("anonymous", null, false),
+                new CdpProfile.Loyalty("Guest", 0, false),
+                new CdpProfile.ConsentState(true, true),
+                java.util.Map.of(),
+                java.util.Set.of(),
+                List.of()));
+
+    verify(jdbc)
+        .update(
+            contains("insert into experiment_exposures"),
+            eq("agent-experiment"),
+            anyString(),
+            eq("anonymous"),
+            eq("session"),
+            eq("correlation"));
+  }
+
+  @Test
   void nonDeployedPerformanceWithholdsLift() {
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
     when(jdbc.queryForObject(anyString(), eq(Integer.class), any(), any())).thenReturn(0);

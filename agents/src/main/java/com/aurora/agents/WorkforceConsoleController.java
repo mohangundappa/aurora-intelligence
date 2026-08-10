@@ -7,6 +7,7 @@ import com.aurora.experiments.ExperimentAnalysisService;
 import com.aurora.experiments.ExperimentProposal;
 import com.aurora.experiments.ExperimentProposalRepository;
 import com.aurora.experiments.ExperimentProposalService;
+import com.aurora.experiments.UnknownExperimentException;
 import com.aurora.objectives.MarketingObjective;
 import com.aurora.objectives.MarketingObjectiveService;
 import com.aurora.objectives.WorkflowStageTiming;
@@ -80,11 +81,23 @@ public class WorkforceConsoleController {
   }
 
   private ProposalView proposalView(ExperimentProposal proposal) {
+    List<ExperimentAnalysis> proposalAnalyses;
+    String analysisError = null;
+    try {
+      proposalAnalyses = analyses.list(proposal.experimentId());
+    } catch (UnknownExperimentException exception) {
+      proposalAnalyses = List.of();
+      analysisError = "No activated experiment definition exists yet.";
+    } catch (RuntimeException exception) {
+      proposalAnalyses = List.of();
+      analysisError = "Analysis data could not be loaded for this proposal.";
+    }
     return new ProposalView(
         proposal,
         proposals.audit(proposal.proposalId()),
         proposals.activationAttempts(proposal.proposalId()),
-        analyses.list(proposal.experimentId()));
+        proposalAnalyses,
+        analysisError);
   }
 
   public record WorkforceView(
@@ -103,5 +116,6 @@ public class WorkforceConsoleController {
       ExperimentProposal proposal,
       List<ExperimentProposalRepository.GovernanceAudit> audit,
       List<ActivationAttempt> activationAttempts,
-      List<ExperimentAnalysis> analyses) {}
+      List<ExperimentAnalysis> analyses,
+      String analysisError) {}
 }

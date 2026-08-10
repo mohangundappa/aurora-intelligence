@@ -56,8 +56,10 @@ type ProposalView = {
     reason: string | null;
     providerMetadata: Record<string, string>;
     attemptedAt: string;
+    contextId: string | null;
   }[];
   analyses: Analysis[];
+  analysisError: string | null;
 };
 
 type Execution = {
@@ -156,11 +158,14 @@ function ExecutionCard({ execution }: { execution: Execution }) {
     execution.status.toUpperCase().includes("REFUS") ||
     execution.errors.length > 0 ||
     refusal !== null;
+  const displayedStatus = refused ? "REFUSED" : execution.status;
   return (
     <article className={`execution-card ${refused ? "refusal" : ""}`}>
       <div className="event-row">
         <strong>{execution.agentType}</strong>
-        <span className="pill">{execution.status}</span>
+        <span className={`pill ${refused ? "pill-refused" : ""}`}>
+          {displayedStatus}
+        </span>
       </div>
       {refused && (
         <p className="refusal-copy">
@@ -178,9 +183,13 @@ function ExecutionCard({ execution }: { execution: Execution }) {
       </p>
       <details>
         <summary>Agent output and tool evidence</summary>
-        <pre className="json-block">
-          {JSON.stringify(execution.output, null, 2)}
-        </pre>
+        {execution.output == null ? (
+          <EmptyState>No output recorded.</EmptyState>
+        ) : (
+          <pre className="json-block">
+            {JSON.stringify(execution.output, null, 2)}
+          </pre>
+        )}
         {execution.toolCalls.length ? (
           execution.toolCalls.map((call) => (
             <details className="tool-call" key={call.resultReference}>
@@ -285,6 +294,7 @@ export default function WorkforcePage() {
                   {attempt.acceptedCount} accepted · {attempt.rejectedCount}{" "}
                   rejected
                   {attempt.reason ? ` · ${attempt.reason}` : ""}
+                  {attempt.contextId ? ` · context ${attempt.contextId}` : ""}
                 </small>
                 <code>{JSON.stringify(attempt.providerMetadata)}</code>
               </div>
@@ -315,7 +325,9 @@ export default function WorkforcePage() {
               <span>Insight</span>
               <span>Proposal</span>
               <span>Governance</span>
+              <span>Activation</span>
               <span>Analysis</span>
+              <span>Recommendation</span>
             </div>
 
             <section className="workforce-section">
@@ -385,6 +397,9 @@ export default function WorkforcePage() {
                             {attempt.acceptedCount} accepted ·{" "}
                             {attempt.rejectedCount} rejected
                             {attempt.reason ? ` · ${attempt.reason}` : ""}
+                            {attempt.contextId
+                              ? ` · context ${attempt.contextId}`
+                              : ""}
                           </small>
                         </div>
                       ))
@@ -394,6 +409,11 @@ export default function WorkforcePage() {
                       </EmptyState>
                     )}
                     <h4>Analyses</h4>
+                    {proposal.analysisError && (
+                      <p className="console-warning" role="status">
+                        {proposal.analysisError}
+                      </p>
+                    )}
                     {proposal.analyses.length ? (
                       proposal.analyses.map((analysis) => (
                         <div
@@ -401,8 +421,18 @@ export default function WorkforcePage() {
                           key={analysis.analysisId}
                         >
                           <div className="event-row">
-                            <strong>{analysis.recommendation}</strong>
-                            <span className="pill">
+                            <strong>
+                              {analysis.sufficientSample
+                                ? analysis.recommendation
+                                : "No recommendation — evidence guard not met"}
+                            </strong>
+                            <span
+                              className={`pill ${
+                                analysis.sufficientSample
+                                  ? "pill-guard-met"
+                                  : "pill-guard-unmet"
+                              }`}
+                            >
                               {analysis.sufficientSample
                                 ? "GUARD MET"
                                 : "GUARD NOT MET"}

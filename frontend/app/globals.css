@@ -416,7 +416,7 @@ h2 {
 
 .workforce-stage {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 0.5rem;
   margin: 1.5rem 0;
   padding: 1rem;
@@ -544,6 +544,13 @@ details > summary {
   border-radius: 0.5rem;
 }
 
+.console-warning {
+  padding: 1rem;
+  color: #ffe9b5;
+  background: #5f4a2d;
+  border-radius: 0.5rem;
+}
+
 @media (max-width: 800px) {
   .search-panel,
   .feature-grid,
@@ -600,4 +607,15 @@ details > summary {
   border-radius: 99px;
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.pill-guard-unmet,
+.pill-refused {
+  color: #3f2d0d;
+  background: #f3c875;
+}
+
+.pill-guard-met {
+  color: #153c3c;
+  background: #b5e2d4;
 }

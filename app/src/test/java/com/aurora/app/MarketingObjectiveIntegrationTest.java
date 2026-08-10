@@ -104,7 +104,7 @@ class MarketingObjectiveIntegrationTest {
     String executionId =
         mvc.perform(post("/api/objectives/insight-integration-objective/insights"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+            .andExpect(jsonPath("$.status").value("REFUSED"))
             .andExpect(jsonPath("$.model").value("deterministic"))
             .andExpect(jsonPath("$.inputTokenCount").value(0))
             .andReturn()

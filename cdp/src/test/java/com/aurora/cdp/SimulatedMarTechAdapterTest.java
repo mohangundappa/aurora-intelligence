@@ -57,4 +57,25 @@ class SimulatedMarTechAdapterTest {
 
     assertThat(adapter.retainedResultCount()).isLessThanOrEqualTo(1_024);
   }
+
+  @Test
+  void oldestResultIsEvictedButARepeatBeforeEvictionKeepsItsOriginalResult() {
+    ActivationRequest firstRequest =
+        new ActivationRequest("offer-destination", Map.of("requestedCount", 7), "first-key");
+    ActivationResult first = adapter.deliver(firstRequest);
+
+    for (int index = 0; index < 1_023; index++) {
+      adapter.deliver(
+          new ActivationRequest(
+              "offer-destination", Map.of("requestedCount", 1), "pressure-" + index));
+    }
+
+    ActivationResult retry =
+        adapter.deliver(
+            new ActivationRequest(
+                "offer-destination", Map.of("simulation", "REJECTED"), "first-key"));
+
+    assertThat(retry).isEqualTo(first);
+    assertThat(retry.acceptedCount()).isEqualTo(7);
+  }
 }

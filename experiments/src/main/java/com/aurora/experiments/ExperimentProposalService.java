@@ -256,11 +256,10 @@ public class ExperimentProposalService {
       String operation,
       ActivationRequest request,
       ActivationResult result) {
+    if (activationAttempts == null) return null;
     ActivationAttempt attempt =
         ActivationAttempt.from(proposal.proposalId(), operation, request, result);
-    if (activationAttempts != null) {
-      activationAttempts.save(attempt);
-    }
+    activationAttempts.save(attempt);
     return attempt;
   }
 

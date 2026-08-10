@@ -143,6 +143,21 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
                     evidenceRefs: ["tool-result-2"],
                   },
                 ],
+                analysisError: null,
+              },
+              {
+                proposal: {
+                  proposalId: "proposal-pending",
+                  experimentName: "Awaiting activation",
+                  experimentId: "not-activated",
+                  reasoning: "Awaiting human approval",
+                  evidenceRefs: [],
+                  governanceState: "PROPOSED",
+                },
+                audit: [],
+                activationAttempts: [],
+                analyses: [],
+                analysisError: "No activated experiment definition exists yet.",
               },
             ],
             executions: [
@@ -160,12 +175,35 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
                 toolCalls: [],
                 errors: ["NO_SESSIONS"],
               },
+              {
+                executionId: "execution-null-output",
+                agentType: "ANALYTICS",
+                status: "SUCCEEDED",
+                startedAt: "2026-08-10T00:00:00Z",
+                completedAt: "2026-08-10T00:00:01Z",
+                latencyMilliseconds: 1000,
+                output: null,
+                toolCalls: [],
+                errors: [],
+              },
             ],
             timings: [],
           },
         ],
         executions: [],
-        activationAttempts: [],
+        activationAttempts: [
+          {
+            operation: "OFFER_DELIVERY",
+            destinationId: "web",
+            status: "ACCEPTED",
+            acceptedCount: 1,
+            rejectedCount: 0,
+            reason: null,
+            providerMetadata: {},
+            attemptedAt: "2026-08-10T00:00:00Z",
+            contextId: "session-demo",
+          },
+        ],
       }),
     });
   });
@@ -178,8 +216,44 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
   ).toBeVisible();
   await expect(page.getByText(/Agent refusal: NO_SESSIONS/)).toBeVisible();
   await expect(
+    page
+      .locator(".execution-card.refusal")
+      .getByText("REFUSED", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".execution-card.refusal")
+      .getByText("SUCCEEDED", { exact: true }),
+  ).not.toBeVisible();
+  const nullOutputExecution = page
+    .locator(".execution-card")
+    .filter({ hasText: "ANALYTICS" });
+  await nullOutputExecution.getByText("Agent output and tool evidence").click();
+  await expect(
+    nullOutputExecution.getByText("No output recorded."),
+  ).toBeVisible();
+  await expect(
     page.getByText("Evidence guard not met. Lift and conclusion are withheld."),
   ).toBeVisible();
+  await expect(
+    page.getByText("No recommendation — evidence guard not met"),
+  ).toBeVisible();
+  await expect(page.getByText("ITERATE", { exact: true })).not.toBeVisible();
+  await expect(
+    page.getByText("No activated experiment definition exists yet."),
+  ).toBeVisible();
+  await expect(page.getByText("context session-demo")).toBeVisible();
+  for (const stage of [
+    "Objective",
+    "Insight",
+    "Proposal",
+    "Governance",
+    "Activation",
+    "Analysis",
+    "Recommendation",
+  ]) {
+    await expect(page.getByText(stage, { exact: true })).toBeVisible();
+  }
   await expect(page.getByText("0.0%")).not.toBeVisible();
   await expect(page.getByRole("button")).toHaveCount(0);
 });

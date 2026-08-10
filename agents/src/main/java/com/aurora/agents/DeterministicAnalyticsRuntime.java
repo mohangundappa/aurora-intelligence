@@ -66,7 +66,7 @@ public class DeterministicAnalyticsRuntime
               "1",
               startedAt,
               completedAt,
-              "SUCCEEDED",
+              result.refusal() == null ? "SUCCEEDED" : "REFUSED",
               0,
               0,
               BigDecimal.ZERO,

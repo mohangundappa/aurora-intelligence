@@ -10,9 +10,24 @@ TRUNCATE raw_events, quarantined_events, derived_signals, decisions,
   experiment_exposures, experiment_outcomes, signal_lifecycle_audit,
   signal_lifecycle, identity_links, cdp_profiles, marketing_objective_audit,
   workflow_stage_timings, agent_tool_calls, agent_executions, marketing_insights,
+  experiment_analyses,
   experiment_governance_audit, experiment_proposal_variants, experiment_proposals,
   experiment_definition_variants, experiment_definitions, marketing_objectives,
   martech_activation_attempts RESTART IDENTITY CASCADE;
+TRUNCATE model_audit RESTART IDENTITY;
+UPDATE model_versions
+SET status = CASE
+      WHEN version = '1.0' THEN 'DEPLOYED'
+      WHEN version = '2.0' THEN 'TESTED'
+      ELSE status
+    END,
+    deployed_at = CASE
+      WHEN version = '1.0' THEN now()
+      WHEN version = '2.0' THEN NULL
+      ELSE deployed_at
+    END
+WHERE model_name = 'booking-intent'
+  AND version IN ('1.0', '2.0');
 SQL
   # The registry is intentionally in-memory. Restart it after the demo reset so
   # it cannot serve definitions removed by the database truncate.

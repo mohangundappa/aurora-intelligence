@@ -98,6 +98,11 @@ export default function ExperimentsPage() {
                 Insufficient sample: {performance.warning}
               </p>
             )}
+            <p className="muted">
+              Evidence guard: at least {performance.minimumExposuresPerVariant}{" "}
+              exposed subjects per variant are required before conversion rates
+              are treated as comparable.
+            </p>
             {performance.variants.map((variant) => (
               <div className="event-row" key={variant.name}>
                 <strong>{variant.name}</strong>

@@ -38,7 +38,8 @@ class AnalyticsAgentTest {
             "two-sided 5%",
             "80% power",
             "minimum detectable effect",
-            "no guardrail metrics were examined")
+            "no guardrail metrics were examined",
+            "percentage points")
         .doesNotContain("80% power planning assumption");
     assertThat(result.output().recommendation())
         .isIn(

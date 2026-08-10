@@ -164,7 +164,7 @@ public class AnalyticsAgent {
             + " for "
             + control.variant()
             + ", an absolute difference of "
-            + formatPercent(absoluteLift)
+            + formatPercentagePoints(absoluteLift)
             + " and relative difference of "
             + formatPercent(relativeLift)
             + ". Both arms met the "

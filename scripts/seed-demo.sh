@@ -212,11 +212,12 @@ for index in range(100):
         "correlationId": f"demo-workforce-correlation-{index:03d}"
     })
 exposures = request("GET", f"/api/experiments/{experiment_id}/exposures")
+outcomes_by_variant = {"control": 0, "personalized": 0}
+target_outcomes = {"control": 5, "personalized": 7}
 for exposure in exposures:
-    exposure_index = int(exposure["correlationId"].rsplit("-", 1)[-1])
-    if "personalized" in exposure["variant"] or (
-        "control" in exposure["variant"] and exposure_index < 15
-    ):
+    variant_kind = "personalized" if "personalized" in exposure["variant"] else "control"
+    if outcomes_by_variant[variant_kind] < target_outcomes[variant_kind]:
+        outcomes_by_variant[variant_kind] += 1
         request("POST", f"/api/experiments/{experiment_id}/outcomes", {
             "eventId": str(uuid.uuid5(uuid.NAMESPACE_URL, "aurora-demo:workforce-outcome:" + exposure["correlationId"])),
             "eventName": "BOOKING_COMPLETED",

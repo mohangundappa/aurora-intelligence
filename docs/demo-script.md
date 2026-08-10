@@ -76,17 +76,19 @@ authenticated approval. Production requires SSO/RBAC.
 2. Show the provider-neutral `AUDIENCE` and `CAMPAIGN` attempts: destination,
    accepted status, counts, idempotency key, and opaque metadata.
 3. Point out the 100 total synthetic exposures. On this reset, the randomized
-   split is **43 control** and **57 personalized** exposures. Do not describe
+   split is **50 control** and **50 personalized** exposures. Do not describe
    them as commercial traffic.
 
 ### 5. Analysis and recommendation
 
 1. Expand **Analysis** and show per-arm exposures and outcomes: control has
-   **43 exposures / 4 outcomes (9.3%)** and personalized has **57 exposures /
-   57 outcomes (100.0%)**.
-2. Confirm `GUARD MET` and the Analytics Agent recommendation **SHIP**. The
-   displayed relative lift is **975.0%** for this synthetic seed; it is an
-   observed local experiment result, not commercial performance evidence.
+   **50 exposures / 5 outcomes (10.0%)** and personalized has **50 exposures /
+   7 outcomes (14.0%)**.
+2. Confirm `GUARD MET`, **40.0% relative lift**, and the Analytics Agent
+   recommendation **ITERATE**. The seeded rates are intentionally plausible
+   and modest; this sample was not tuned to manufacture a winner. The
+   recommendation reflects that the observed difference did not meet the
+   significance threshold.
 3. Expand the Analytics execution to show
    `getExperimentPerformance`, `getExperimentExposures`, and
    `getExperimentOutcomes`, with their evidence references.

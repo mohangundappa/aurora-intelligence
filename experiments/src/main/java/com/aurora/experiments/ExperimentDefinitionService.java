@@ -36,4 +36,19 @@ public class ExperimentDefinitionService {
           }
         });
   }
+
+  public ExperimentDefinition deploy(String experimentId) {
+    ExperimentDefinition definition = registry.definition(experimentId);
+    if (definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DRAFT) {
+      throw new IllegalStateException(
+          "Only a DRAFT experiment can be deployed; current status is "
+              + definition.lifecycleStatus());
+    }
+    repository.transitionLifecycle(
+        experimentId,
+        ExperimentDefinition.LifecycleStatus.DRAFT,
+        ExperimentDefinition.LifecycleStatus.DEPLOYED);
+    registry.refreshAfterWrite(experimentId);
+    return registry.definition(experimentId);
+  }
 }

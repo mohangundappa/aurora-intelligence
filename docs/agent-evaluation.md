@@ -37,3 +37,17 @@ word "observed" cannot prove that wording is honest. They are sound only as chec
 against known failure modes in the deterministic implementation, whose output has
 been reviewed. An LLM-backed runtime requires human review of generated
 client-facing text in addition to this suite.
+
+The evaluated obligations are the same obligations exposed by the workforce
+console: evidence references must be reachable, tools must remain read-only,
+observations must not become causal claims, insufficient samples must not
+produce a recommendation, and refusals must retain an exact code and reason.
+The current showcase runtime is deterministic. The interface is an extension
+seam, not a hidden live-model integration.
+
+The evaluated obligations are the same obligations exposed by the workforce
+console: evidence references must be reachable, tools must remain read-only,
+observations must not become causal claims, insufficient samples must not
+produce a recommendation, and refusals must retain an exact code and reason.
+The current showcase runtime is deterministic. The interface is an extension
+seam, not a hidden live-model integration.

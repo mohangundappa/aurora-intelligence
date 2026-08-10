@@ -76,9 +76,49 @@ Scenarios:
   `CUSTOMER_IDENTIFIED`.
 - `demo-experiment-000` through `demo-experiment-099`: synthetic volume for
   guarded and populated experiment views.
+- `demo-workforce-miami`: seeded governed workforce loop from objective through
+  grounded insight, self-declared human approval, provider attempts, deliberate
+  deployment, measurement, and guarded analysis.
+- `demo-workforce-refusal`: a real Insights Agent refusal with
+  `NO_RELEVANT_SIGNAL`; no unsupported analysis is fabricated.
+- `demo-workforce-miami`: seeded governed workforce loop from objective through
+  grounded insight, self-declared human approval, provider attempts, deliberate
+  deployment, measurement, and guarded analysis.
+- `demo-workforce-refusal`: a real Insights Agent refusal with
+  `NO_RELEVANT_SIGNAL`; no unsupported analysis is fabricated.
 
 Seeded volume is synthetic demo data and must never be described as commercial
 performance.
+
+## Digital Workforce console
+
+`/console/workforce` is a read-only causal view linking objectives, grounded
+insights, agent executions and tool evidence, proposals, governance audit,
+activation attempts, measured analysis, recommendations, and workflow-stage
+timings. Refusals are first-class outcomes with machine-readable codes and
+reasons. The deterministic Insights, Experimentation, and Analytics runtimes
+implement the current local contract; `AgentRuntime` is the seam for a future
+LLM-backed runtime, not evidence that one exists today.
+
+The Analytics Agent enforces a 30-exposure-per-arm guard and refuses when its
+evidence obligations cannot be met. Rates, lift, and conclusions are withheld
+for insufficient evidence. Console timings are measured local-demo durations
+only and are not proof of the 50% delivery-time target.
+
+## Digital Workforce console
+
+`/console/workforce` is a read-only causal view linking objectives, grounded
+insights, agent executions and tool evidence, proposals, governance audit,
+activation attempts, measured analysis, recommendations, and workflow-stage
+timings. Refusals are first-class outcomes with machine-readable codes and
+reasons. The deterministic Insights, Experimentation, and Analytics runtimes
+implement the current local contract; `AgentRuntime` is the seam for a future
+LLM-backed runtime, not evidence that one exists today.
+
+The Analytics Agent enforces a 30-exposure-per-arm guard and refuses when its
+evidence obligations cannot be met. Rates, lift, and conclusions are withheld
+for insufficient evidence. Console timings are measured local-demo durations
+only and are not proof of the 50% delivery-time target.
 
 ## Tests
 

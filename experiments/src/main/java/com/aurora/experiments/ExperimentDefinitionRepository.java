@@ -107,6 +107,22 @@ public class ExperimentDefinitionRepository {
     }
   }
 
+  public void transitionLifecycle(
+      String experimentId,
+      ExperimentDefinition.LifecycleStatus from,
+      ExperimentDefinition.LifecycleStatus to) {
+    int updated =
+        jdbc.update(
+            "update experiment_definitions set lifecycle_status=?,updated_at=now() "
+                + "where experiment_id=? and lifecycle_status=?",
+            to.name(),
+            experimentId,
+            from.name());
+    if (updated != 1) {
+      throw new IllegalStateException("Experiment lifecycle changed while processing deployment");
+    }
+  }
+
   public record ExperimentDefinitionRow(
       String id,
       String name,

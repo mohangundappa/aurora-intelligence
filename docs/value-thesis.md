@@ -69,3 +69,23 @@ not measure the whole idea-to-measurement timeline, does not include the
 enterprise data and integration work described above, and is not a proven
 commercial outcome. The credible use of the number is as a planning target
 whose assumptions a client can challenge and replace with its own baseline.
+
+## Workforce proof point
+
+The seeded `/console/workforce` walkthrough provides a concrete artifact for
+the idea-to-measurement portion of the story: an objective produces a grounded
+insight, an agent proposes an experiment, a human approval is audited, Aurora
+registers provider-neutral activation attempts, and measurement feeds a guarded
+analysis. This reduces repeated implementation work in the showcase; it does
+not eliminate data discovery, integration, security review, authentication,
+provider implementation, or production operating work.
+
+## Workforce proof point
+
+The seeded `/console/workforce` walkthrough provides a concrete artifact for
+the idea-to-measurement portion of the story: an objective produces a grounded
+insight, an agent proposes an experiment, a human approval is audited, Aurora
+registers provider-neutral activation attempts, and measurement feeds a guarded
+analysis. This reduces repeated implementation work in the showcase; it does
+not eliminate data discovery, integration, security review, authentication,
+provider implementation, or production operating work.

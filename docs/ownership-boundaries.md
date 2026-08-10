@@ -119,3 +119,23 @@ The simulator persists profiles, identity links, audiences, consent and
 attributes in PostgreSQL. Login and booking are simulated. Production must
 replace it through `CdpAdapter` and must not infer that the local tables are a
 replacement CDP.
+
+## Digital Workforce boundary
+
+The workforce console is a read-only presentation and audit surface. Aurora
+owns the deterministic agent runtimes, evidence references, refusal outcomes,
+proposal lifecycle records, workflow timings, measurement guards, and
+provider-neutral activation attempts shown there. Approval, activation,
+deployment, agent invocation, and policy mutation remain server-side.
+
+The console's timings are observed local durations only. They are not evidence
+of a commercial delivery-time improvement. The evaluation dataset and harness
+test grounding, refusal boundaries, sample protection, observational wording,
+and read-only tool allowlists; they do not prove production model safety.
+
+The showcase deliberately leaves authentication on governance endpoints,
+authenticated actor verification, a live LLM runtime behind `AgentRuntime`, and
+real provider adapters to an implementation engagement. The Analytics Agent
+currently refuses before persisting insufficient-sample analyses, so the
+console's unmet-guard rendering is defensive rather than a product-reachable
+seed scenario.

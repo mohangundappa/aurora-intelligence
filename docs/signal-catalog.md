@@ -164,3 +164,11 @@ Retired → terminal
 
 `POST /api/signals/lifecycle/{name}/{status}` validates transitions and writes
 `signal_lifecycle_audit` with actor, action, old/new status, version, and time.
+
+## Agent evidence boundary
+
+Insights and experimentation agents select registered signals and cite
+tool-result references in their durable outputs. A missing relevant signal,
+missing comparable groups, or missing conversions is a refusal rather than a
+zero-valued signal or fabricated finding. The workforce console exposes those
+refusal codes and evidence references.

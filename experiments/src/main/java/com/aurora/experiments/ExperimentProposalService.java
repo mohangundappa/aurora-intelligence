@@ -88,7 +88,7 @@ public class ExperimentProposalService {
     ExperimentProposal proposal = get(proposalId);
     requireState(proposal, ExperimentProposal.GovernanceState.APPROVED);
     Instant started = Instant.now();
-    definitions.save(proposal.toDraftDefinition());
+    definitions.saveAfterCommit(proposal.toDraftDefinition());
     repository.transition(
         proposalId,
         ExperimentProposal.GovernanceState.APPROVED,

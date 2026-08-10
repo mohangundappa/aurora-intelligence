@@ -72,7 +72,7 @@ class ExperimentProposalServiceTest {
 
     service.activate(id, "operator", "approved rollout configuration");
 
-    verify(definitions).save(approved.toDraftDefinition());
+    verify(definitions).saveAfterCommit(approved.toDraftDefinition());
     verify(repository)
         .transition(
             id,
@@ -91,7 +91,7 @@ class ExperimentProposalServiceTest {
             new IllegalStateException(
                 "Experiment definition was persisted but is not yet in the serving view"))
         .when(definitions)
-        .save(approved.toDraftDefinition());
+        .saveAfterCommit(approved.toDraftDefinition());
 
     assertThatThrownBy(() -> service.activate(id, "operator", "activate"))
         .isInstanceOf(IllegalStateException.class)
@@ -117,6 +117,8 @@ class ExperimentProposalServiceTest {
         "experiment-" + id,
         "Experiment",
         "Description",
+        "Weekend leisure travelers",
+        "weekend-getaway-affinity",
         "Hypothesis",
         List.of(
             new ExperimentProposal.Variant("treatment", 20),

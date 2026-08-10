@@ -21,6 +21,8 @@ class ExperimentProposalTest {
                     "experiment",
                     "Experiment",
                     "Description",
+                    "Weekend leisure travelers",
+                    "weekend-getaway-affinity",
                     "Hypothesis",
                     List.of(new ExperimentProposal.Variant("control", 60)),
                     "BOOKING_COMPLETED",
@@ -51,6 +53,8 @@ class ExperimentProposalTest {
         "experiment",
         "Experiment",
         "Description",
+        "Weekend leisure travelers",
+        "weekend-getaway-affinity",
         "Hypothesis",
         List.of(
             new ExperimentProposal.Variant("treatment", 20),

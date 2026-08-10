@@ -29,10 +29,10 @@ public class ExperimentProposalRepository {
         """
         insert into experiment_proposals(
           proposal_id,objective_id,insight_id,experiment_id,experiment_name,
-          experiment_description,hypothesis,primary_outcome_event,
+          experiment_description,target_audience,targeting_signal,hypothesis,primary_outcome_event,
           minimum_exposures_per_variant,expected_effect,reasoning,evidence_refs,
           correlation_id,governance_state,created_at)
-        values (?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?,?,?)
+        values (?,?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?,?,?)
         """,
         proposal.proposalId(),
         proposal.objectiveId(),
@@ -40,6 +40,8 @@ public class ExperimentProposalRepository {
         proposal.experimentId(),
         proposal.experimentName(),
         proposal.experimentDescription(),
+        proposal.targetAudience(),
+        proposal.targetingSignal(),
         proposal.hypothesis(),
         proposal.primaryOutcomeEvent(),
         proposal.minimumExposuresPerVariant(),
@@ -149,6 +151,8 @@ public class ExperimentProposalRepository {
         result.getString("experiment_id"),
         result.getString("experiment_name"),
         result.getString("experiment_description"),
+        result.getString("target_audience"),
+        result.getString("targeting_signal"),
         result.getString("hypothesis"),
         variants,
         result.getString("primary_outcome_event"),

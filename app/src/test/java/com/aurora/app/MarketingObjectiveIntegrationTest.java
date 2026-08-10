@@ -186,6 +186,8 @@ class MarketingObjectiveIntegrationTest {
             "proposal-integration-experiment",
             "Integration experiment",
             "Integration experiment description",
+            "Weekend leisure guests",
+            "weekend-getaway-affinity",
             "Test observed association",
             List.of(
                 new ExperimentProposal.Variant("treatment", 20),

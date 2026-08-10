@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class ExperimentationAgentTest {
@@ -21,14 +22,17 @@ class ExperimentationAgentTest {
   void derivesProposalFromObservedSignalEvidence() {
     AgentToolRegistry tools = mock(AgentToolRegistry.class);
     UUID executionId = UUID.randomUUID();
+    List<EventRepository.SessionSummary> sessions =
+        IntStream.range(0, 100)
+            .mapToObj(
+                index ->
+                    new EventRepository.SessionSummary(
+                        "s" + index, null, null, null, Instant.now()))
+            .toList();
+    List<String> sessionIds =
+        sessions.stream().map(EventRepository.SessionSummary::sessionId).toList();
     when(tools.invoke("listSessions", AgentToolInputs.Empty.INSTANCE, executionId))
-        .thenReturn(
-            invocation(
-                "listSessions",
-                List.of(
-                    new EventRepository.SessionSummary("s1", null, null, null, Instant.now()),
-                    new EventRepository.SessionSummary("s2", null, null, null, Instant.now()),
-                    new EventRepository.SessionSummary("s3", null, null, null, Instant.now()))));
+        .thenReturn(invocation("listSessions", sessions));
     when(tools.invoke("listSignals", AgentToolInputs.Empty.INSTANCE, executionId))
         .thenReturn(
             invocation(
@@ -52,15 +56,20 @@ class ExperimentationAgentTest {
     when(tools.invoke(
             "calculateSignal",
             new AgentToolInputs.SignalCalculation(
-                "weekend-getaway-affinity", "BOOKING_COMPLETED", List.of("s1", "s2", "s3")),
+                "weekend-getaway-affinity", "BOOKING_COMPLETED", sessionIds),
             executionId))
         .thenReturn(
             invocation(
                 "calculateSignal",
-                List.of(
-                    new AgentToolResults.SignalObservation("s1", true, 1, true),
-                    new AgentToolResults.SignalObservation("s2", false, 0, false),
-                    new AgentToolResults.SignalObservation("s3", false, 0, true))));
+                IntStream.range(0, 100)
+                    .mapToObj(
+                        index ->
+                            new AgentToolResults.SignalObservation(
+                                "s" + index,
+                                index < 50,
+                                index < 50 ? 1 : 0,
+                                index < 50 || index >= 75))
+                    .toList()));
 
     ExperimentProposal proposal =
         new ExperimentationAgent(tools).propose(input(), executionId, "correlation");
@@ -68,9 +77,13 @@ class ExperimentationAgentTest {
     assertThat(proposal).isNotNull();
     assertThat(proposal.variants())
         .extracting(ExperimentProposal.Variant::allocationPercentage)
-        .containsExactly(33, 67);
+        .containsExactly(50, 50);
     assertThat(proposal.expectedEffect()).isEqualByComparingTo(BigDecimal.valueOf(0.5));
     assertThat(proposal.hypothesis()).contains("test whether");
+    assertThat(proposal.minimumExposuresPerVariant()).isGreaterThanOrEqualTo(30);
+    assertThat(proposal.targetAudience()).isEqualTo("weekend leisure travelers");
+    assertThat(proposal.targetingSignal()).isEqualTo("weekend-getaway-affinity");
+    assertThat(proposal.experimentId()).contains("weekend-leisure-booking-conversion");
   }
 
   @Test

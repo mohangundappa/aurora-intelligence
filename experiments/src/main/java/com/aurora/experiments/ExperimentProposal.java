@@ -12,6 +12,8 @@ public record ExperimentProposal(
     String experimentId,
     String experimentName,
     String experimentDescription,
+    String targetAudience,
+    String targetingSignal,
     String hypothesis,
     List<Variant> variants,
     String primaryOutcomeEvent,
@@ -36,6 +38,12 @@ public record ExperimentProposal(
     }
     if (experimentDescription == null || experimentDescription.isBlank()) {
       throw new IllegalArgumentException("experimentDescription is required");
+    }
+    if (targetAudience == null || targetAudience.isBlank()) {
+      throw new IllegalArgumentException("targetAudience is required");
+    }
+    if (targetingSignal == null || targetingSignal.isBlank()) {
+      throw new IllegalArgumentException("targetingSignal is required");
     }
     if (hypothesis == null || hypothesis.isBlank()) {
       throw new IllegalArgumentException("hypothesis is required");

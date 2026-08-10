@@ -90,9 +90,11 @@ authenticated approval. Production requires SSO/RBAC.
    nothing.
 2. Show the provider-neutral `AUDIENCE` and `CAMPAIGN` attempts: destination,
    accepted status, counts, idempotency key, and opaque metadata.
-   The collapsed **Provider activation attempts (107)** list is dominated by
-   seeded offer-delivery activations; those rows are the expected delivery
-   activity behind the count.
+   The collapsed **Provider activation attempts** list is a running audit of
+   provider-neutral hand-offs: proposal activation records `AUDIENCE` and
+   `CAMPAIGN` registrations, while each consented decision served records an
+   `OFFER_DELIVERY` attempt. Its total grows as the walkthrough serves
+   decisions, so it is not a fixed seeded figure.
 3. Point out the 100 total synthetic exposures. On every reset, the
    deterministic experiment assignment produces **52 control** and **48
    personalized** exposures. Do not describe them as commercial traffic.

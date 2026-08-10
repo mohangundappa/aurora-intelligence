@@ -37,19 +37,28 @@ public class ContextService {
   }
 
   public CustomerContext forSession(String sessionId) {
-    CustomerContext cached = cache.get(sessionId);
+    return forSession(sessionId, true);
+  }
+
+  public CustomerContext forSessionReadOnly(String sessionId) {
+    return forSession(sessionId, false);
+  }
+
+  private CustomerContext forSession(String sessionId, boolean sideEffects) {
+    CustomerContext cached = sideEffects ? cache.get(sessionId) : null;
     if (cached != null) return cached;
     List<EventEnvelope> recent = events.findBySession(sessionId);
     if (recent.isEmpty()) {
       CustomerContext context =
           new CustomerContext(
               cdp.profile("unknown"), sessionId, List.of(), List.of(), "Discovery", false, null);
-      cache.put(sessionId, context);
+      if (sideEffects) cache.put(sessionId, context);
       return context;
     }
     String anonymousId = recent.get(0).anonymousId();
     CdpProfile profile = cdp.profile(anonymousId);
-    List<SignalSnapshot> activeSignals = signals.calculateAll(sessionId);
+    List<SignalSnapshot> activeSignals =
+        sideEffects ? signals.calculateAll(sessionId) : signals.calculateAllReadOnly(sessionId);
     SignalSnapshot stage =
         activeSignals.stream()
             .filter(signal -> "journey-stage".equals(signal.name()))
@@ -57,13 +66,20 @@ public class ContextService {
             .orElse(null);
     boolean eligible = profile.consent().personalization();
     Decision decision =
-        decisions.decide(
-            sessionId,
-            profile,
-            activeSignals,
-            eligible,
-            recent.get(recent.size() - 1).correlationId());
-    experiments.recordExposure(decision, profile);
+        sideEffects
+            ? decisions.decide(
+                sessionId,
+                profile,
+                activeSignals,
+                eligible,
+                recent.get(recent.size() - 1).correlationId())
+            : decisions.preview(
+                sessionId,
+                profile,
+                activeSignals,
+                eligible,
+                recent.get(recent.size() - 1).correlationId());
+    if (sideEffects) experiments.recordExposure(decision, profile);
     CustomerContext context =
         new CustomerContext(
             profile,
@@ -73,7 +89,7 @@ public class ContextService {
             stage == null ? "Discovery" : stage.attributes().getOrDefault("stage", "Discovery"),
             eligible,
             decision);
-    cache.put(sessionId, context);
+    if (sideEffects) cache.put(sessionId, context);
     return context;
   }
 

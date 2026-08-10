@@ -136,7 +136,7 @@ class ExperimentServiceTest {
         new ExperimentService(jdbc, registry).performance("draft-experiment");
 
     assertThat(result.insufficientSample()).isTrue();
-    assertThat(result.warning()).contains("30 exposed subjects per variant", "lift");
+    assertThat(result.warning()).contains("DRAFT", "not been deployed", "lift is withheld");
     assertThat(result.variants())
         .extracting(ExperimentPerformance.Variant::exposed)
         .containsOnly(0);

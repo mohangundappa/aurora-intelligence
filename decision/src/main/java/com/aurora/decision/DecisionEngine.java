@@ -32,36 +32,43 @@ public class DecisionEngine {
       List<SignalSnapshot> signals,
       boolean personalizationConsent,
       String correlationId) {
+    Decision decision = preview(sessionId, profile, signals, personalizationConsent, correlationId);
+    persist(decision, profile, signals);
+    if (personalizationConsent && profile.consent().personalization() && experiments != null) {
+      experiments.recordExposure(decision, profile);
+    }
+    return decision;
+  }
+
+  public Decision preview(
+      String sessionId,
+      CdpProfile profile,
+      List<SignalSnapshot> signals,
+      boolean personalizationConsent,
+      String correlationId) {
     if (!personalizationConsent || !profile.consent().personalization()) {
-      Decision decision =
-          new Decision(
-              "STANDARD_WELCOME",
-              "STANDARD_WELCOME",
-              "web",
-              List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
-              policy.version(),
-              null,
-              "Personalization is disabled, so the standard welcome experience is shown.",
-              sessionId,
-              correlationId);
-      persist(decision, profile, signals);
-      return decision;
+      return new Decision(
+          "STANDARD_WELCOME",
+          "STANDARD_WELCOME",
+          "web",
+          List.of("CONSENT_NOT_GRANTED", "SAFE_DEFAULT"),
+          policy.version(),
+          null,
+          "Personalization is disabled, so the standard welcome experience is shown.",
+          sessionId,
+          correlationId);
     }
     DecisionPolicy.DecisionPolicyResult result = policy.evaluate(signals);
-    Decision decision =
-        new Decision(
-            result.action(),
-            result.experience(),
-            policy.channel(),
-            result.reasonCodes(),
-            policy.version(),
-            result.experimentId(),
-            result.explanation(),
-            sessionId,
-            correlationId);
-    persist(decision, profile, signals);
-    if (experiments != null) experiments.recordExposure(decision, profile);
-    return decision;
+    return new Decision(
+        result.action(),
+        result.experience(),
+        policy.channel(),
+        result.reasonCodes(),
+        policy.version(),
+        result.experimentId(),
+        result.explanation(),
+        sessionId,
+        correlationId);
   }
 
   private void persist(Decision decision, CdpProfile profile, List<SignalSnapshot> signals) {

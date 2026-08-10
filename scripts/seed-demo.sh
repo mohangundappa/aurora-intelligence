@@ -14,6 +14,9 @@ TRUNCATE raw_events, quarantined_events, derived_signals, decisions,
   experiment_definition_variants, experiment_definitions, marketing_objectives,
   martech_activation_attempts RESTART IDENTITY CASCADE;
 SQL
+  # The registry is intentionally in-memory. Restart it after the demo reset so
+  # it cannot serve definitions removed by the database truncate.
+  docker compose restart backend >/dev/null
 fi
 
 SEED_INSTANT="$SEED_INSTANT" API_URL="$API_URL" python3 - <<'PY'

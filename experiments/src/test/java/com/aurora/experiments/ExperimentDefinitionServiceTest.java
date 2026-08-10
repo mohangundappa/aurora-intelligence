@@ -40,6 +40,25 @@ class ExperimentDefinitionServiceTest {
     assertThat(scheduledRefresh).isNotNull();
   }
 
+  @Test
+  void savesWhenServingViewContainsAStaleDefinitionThatDatabaseResetRemoved() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    when(repository.findAll()).thenReturn(List.of(definition()), List.of());
+    when(repository.existsById("database-experiment")).thenReturn(false);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
+    ExperimentDefinitionService service = new ExperimentDefinitionService(repository, registry);
+
+    service.save(definition());
+
+    verify(repository).save(definition());
+  }
+
   private ExperimentDefinition definition() {
     return new ExperimentDefinition(
         "database-experiment",

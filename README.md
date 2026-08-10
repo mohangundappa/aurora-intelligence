@@ -142,6 +142,12 @@ docs/         architecture, catalogs, ownership, API, roadmap and ADRs
 - **Playwright cannot launch:** run `npx playwright install chromium`.
 - **Experiment guard remains visible:** fewer than 30 exposures in one arm is
   intentional; the UI must withhold lift rather than overclaim.
+- **Flyway migration gap after a parallel release:** stop the application,
+  inspect `flyway_schema_history`, and use Flyway repair only for a failed
+  migration after confirming the migration files and checksums are correct.
+  For this disposable showcase, a clean reset (`docker compose down -v` followed
+  by the documented Compose startup) is the safer recovery; never rename an
+  already-applied migration.
 
 ## Further reading
 

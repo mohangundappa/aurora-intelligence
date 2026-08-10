@@ -5,5 +5,7 @@ public interface AgentTool<I, O> {
 
   Class<I> inputType();
 
+  boolean readOnly();
+
   O execute(I input);
 }

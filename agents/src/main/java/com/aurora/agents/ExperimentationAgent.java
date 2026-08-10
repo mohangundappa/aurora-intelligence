@@ -19,9 +19,9 @@ public class ExperimentationAgent {
   private static final double TWO_SIDED_ALPHA_Z = 1.96;
   private static final double POWER_80_Z = 0.84;
   private static final double PLATFORM_MINIMUM_EXPOSURES = 30;
-  private final AgentToolRegistry tools;
+  private final AgentToolProvider tools;
 
-  public ExperimentationAgent(AgentToolRegistry tools) {
+  public ExperimentationAgent(AgentToolProvider tools) {
     this.tools = tools;
   }
 

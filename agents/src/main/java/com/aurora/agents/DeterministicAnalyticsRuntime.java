@@ -1,7 +1,7 @@
 package com.aurora.agents;
 
 import com.aurora.experiments.ExperimentAnalysis;
-import com.aurora.experiments.ExperimentAnalysisRepository;
+import com.aurora.experiments.ExperimentAnalysisService;
 import com.aurora.objectives.WorkflowStage;
 import com.aurora.objectives.WorkflowStageTimingService;
 import java.math.BigDecimal;
@@ -15,13 +15,13 @@ import org.springframework.stereotype.Service;
 public class DeterministicAnalyticsRuntime
     implements AgentRuntime<AnalyticsInput, ExperimentAnalysis> {
   private final AgentExecutionRepository executions;
-  private final ExperimentAnalysisRepository analyses;
+  private final ExperimentAnalysisService analyses;
   private final WorkflowStageTimingService timings;
   private final AnalyticsAgent agent;
 
   public DeterministicAnalyticsRuntime(
       AgentExecutionRepository executions,
-      ExperimentAnalysisRepository analyses,
+      ExperimentAnalysisService analyses,
       WorkflowStageTimingService timings,
       AgentToolRegistry tools) {
     this.executions = executions;

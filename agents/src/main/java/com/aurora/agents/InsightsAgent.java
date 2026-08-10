@@ -15,9 +15,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class InsightsAgent {
-  private final AgentToolRegistry tools;
+  private final AgentToolProvider tools;
 
-  public InsightsAgent(AgentToolRegistry tools) {
+  public InsightsAgent(AgentToolProvider tools) {
     this.tools = tools;
   }
 

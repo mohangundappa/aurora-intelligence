@@ -48,10 +48,15 @@ class AgentToolRegistryTest {
     assertThat(registry.toolNames())
         .doesNotContain(
             "createExperimentProposal",
+            "approveExperimentProposal",
+            "rejectExperimentProposal",
             "deployModel",
             "rollbackModel",
             "transitionSignal",
-            "activateExperiment");
+            "activateExperiment",
+            "activateExperimentProposal",
+            "saveExperimentDefinition",
+            "writeExperimentDefinition");
   }
 
   @Test

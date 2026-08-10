@@ -188,6 +188,24 @@ class ExperimentRegistryTest {
     assertThat(registry.isDatabaseViewIncomplete()).isTrue();
   }
 
+  @Test
+  void shutsDownInjectedRefreshSchedulerWithTheRegistry() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    ExperimentRegistry.RefreshScheduler scheduler = mock(ExperimentRegistry.RefreshScheduler.class);
+    when(repository.findAll()).thenReturn(List.of());
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            scheduler);
+
+    registry.shutdownRefreshScheduler();
+
+    verify(scheduler).shutdown();
+  }
+
   private ExperimentDefinition definition(String id) {
     return new ExperimentDefinition(
         id,

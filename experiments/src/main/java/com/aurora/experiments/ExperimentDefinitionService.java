@@ -16,6 +16,6 @@ public class ExperimentDefinitionService {
   public void save(ExperimentDefinition definition) {
     registry.assertCanWrite(definition.id());
     repository.save(definition);
-    registry.refresh();
+    registry.refreshAfterWrite(definition.id());
   }
 }

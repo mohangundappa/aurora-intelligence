@@ -1,5 +1,6 @@
 package com.aurora.experiments;
 
+import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -106,6 +107,20 @@ public class ExperimentRegistry {
     databaseViewIncomplete = false;
   }
 
+  public void refreshAfterWrite(String id) {
+    try {
+      refresh();
+    } catch (Exception exception) {
+      markDatabaseViewIncomplete();
+      scheduleDatabaseRefresh();
+      throw new IllegalStateException(
+          "Experiment definition '"
+              + id
+              + "' was persisted but is not yet in the serving view; background refresh has been scheduled",
+          exception);
+    }
+  }
+
   public void assertCanWrite(String id) {
     if (databaseViewIncomplete) {
       throw new IllegalStateException(
@@ -119,6 +134,11 @@ public class ExperimentRegistry {
 
   public boolean isDatabaseViewIncomplete() {
     return databaseViewIncomplete;
+  }
+
+  @PreDestroy
+  void shutdownRefreshScheduler() {
+    refreshScheduler.shutdown();
   }
 
   // Keep recovery off customer-facing threads and throttle retries during an outage.
@@ -157,12 +177,24 @@ public class ExperimentRegistry {
               thread.setDaemon(true);
               return thread;
             });
-    return (task, delay) -> executor.schedule(task, delay.toMillis(), TimeUnit.MILLISECONDS);
+    return new RefreshScheduler() {
+      @Override
+      public void schedule(Runnable task, Duration delay) {
+        executor.schedule(task, delay.toMillis(), TimeUnit.MILLISECONDS);
+      }
+
+      @Override
+      public void shutdown() {
+        executor.shutdownNow();
+      }
+    };
   }
 
   @FunctionalInterface
   interface RefreshScheduler {
     void schedule(Runnable task, Duration delay);
+
+    default void shutdown() {}
   }
 
   private Map<String, ExperimentDefinition> loadYaml(

@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.aurora.common.EventEnvelope;
+import com.aurora.common.SignalDefinition;
 import com.aurora.ingest.EventRepository;
 import com.aurora.objectives.MarketingObjective;
 import java.math.BigDecimal;
@@ -19,76 +19,125 @@ import org.junit.jupiter.api.Test;
 
 class InsightsAgentTest {
   private static final UUID EXECUTION_ID = UUID.randomUUID();
+  private static final SignalDefinition WEEKEND_SIGNAL =
+      new SignalDefinition(
+          "weekend-getaway-affinity",
+          "1.0",
+          List.of("TRAVEL_DATES_SELECTED"),
+          SignalDefinition.CalculationType.RULE,
+          "real-time",
+          "30d",
+          "0-100",
+          "event-derived",
+          "30m",
+          "24h",
+          true,
+          "Weekend dates matched the getaway pattern.",
+          SignalDefinition.LifecycleStatus.DRAFT,
+          "Customer Intelligence");
 
   @Test
-  void derivesStructuredInsightOnlyFromRecordedToolResults() {
+  void derivesSignalGroundedComparisonFromRecordedToolResults() {
     AgentToolRegistry tools = mock(AgentToolRegistry.class);
-    EventRepository.SessionSummary session =
-        new EventRepository.SessionSummary("session-1", "Miami", null, "anon-1", Instant.now());
-    AgentToolInvocation sessions =
-        new AgentToolInvocation(
-            UUID.randomUUID(), "searchEvents", "result:sessions", "SUCCEEDED", List.of(session));
-    AgentToolInvocation events =
-        new AgentToolInvocation(
-            UUID.randomUUID(),
-            "searchEvents",
-            "result:events",
-            "SUCCEEDED",
-            List.of(event("BOOKING_COMPLETED")));
-    when(tools.invoke(eq("searchEvents"), any(), eq(EXECUTION_ID)))
-        .thenReturn(sessions)
-        .thenReturn(events);
+    stubSessions(tools);
+    stubSignal(tools, observations(true, false));
 
     MarketingInsight insight =
         new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-1");
 
     assertThat(insight).isNotNull();
+    assertThat(insight.finding()).contains("higher", "100.0%", "0.0%");
     assertThat(insight.metrics())
-        .containsEntry("observedSessions", 1)
-        .containsEntry("bookingCompletedSessions", 1L);
-    assertThat(insight.evidenceRefs()).containsExactly("result:sessions", "result:events");
+        .containsEntry("signalName", "weekend-getaway-affinity")
+        .containsEntry("targetKpi", "BOOKING_COMPLETED")
+        .containsEntry("targetAudience", "Weekend leisure guests")
+        .containsEntry("sessionsWithSignal", 1)
+        .containsEntry("sessionsWithoutSignal", 1)
+        .containsEntry("conversionsWithSignal", 1L)
+        .containsEntry("conversionsWithoutSignal", 0L);
+    assertThat(insight.evidenceRefs())
+        .containsExactly("result:sessions", "result:signals", "result:calculation");
     assertThat(insight.correlationId()).isEqualTo("correlation-1");
   }
 
   @Test
-  void producesNoInsightWhenEvidenceContainsNoCompletedBooking() {
+  void findingChangesWhenTheObservedConversionGroupsChange() {
     AgentToolRegistry tools = mock(AgentToolRegistry.class);
-    EventRepository.SessionSummary session =
-        new EventRepository.SessionSummary("session-1", "Miami", null, "anon-1", Instant.now());
-    when(tools.invoke(eq("searchEvents"), any(), eq(EXECUTION_ID)))
+    stubSessions(tools);
+    when(tools.invoke(eq("calculateSignal"), any(), eq(EXECUTION_ID)))
         .thenReturn(
-            new AgentToolInvocation(
-                UUID.randomUUID(),
-                "searchEvents",
-                "result:sessions",
-                "SUCCEEDED",
-                List.of(session)))
+            invocation("calculateSignal", "result:calculation-1", observations(true, false)))
         .thenReturn(
-            new AgentToolInvocation(
-                UUID.randomUUID(),
-                "searchEvents",
-                "result:events",
-                "SUCCEEDED",
-                List.of(event("DESTINATION_SEARCHED"))));
+            invocation("calculateSignal", "result:calculation-2", observations(false, true)));
+    when(tools.invoke(eq("listSignals"), any(), eq(EXECUTION_ID)))
+        .thenReturn(invocation("listSignals", "result:signals", List.of(WEEKEND_SIGNAL)));
+
+    InsightsAgent agent = new InsightsAgent(tools);
+    MarketingInsight first = agent.derive(objective(), EXECUTION_ID, "correlation-1");
+    MarketingInsight second = agent.derive(objective(), EXECUTION_ID, "correlation-2");
+
+    assertThat(first.finding()).contains("higher");
+    assertThat(second.finding()).contains("lower");
+    assertThat(first.metrics().get("conversionRateDifference"))
+        .isNotEqualTo(second.metrics().get("conversionRateDifference"));
+  }
+
+  @Test
+  void producesNoInsightWithoutTwoComparableSignalGroups() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    stubSessions(tools);
+    stubSignal(tools, List.of(observation("session-1", true, true)));
 
     assertThat(new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-2"))
         .isNull();
   }
 
-  private EventEnvelope event(String name) {
-    return new EventEnvelope(
-        UUID.randomUUID(),
-        name,
-        Instant.now(),
-        Instant.now(),
-        "1.0",
-        "test",
-        "session-1",
-        "anon-1",
-        null,
-        UUID.randomUUID().toString(),
-        new EventEnvelope.Consent(true, true),
-        Map.of());
+  @Test
+  void producesNoInsightWhenComparableGroupsHaveNoConversions() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    stubSessions(tools);
+    stubSignal(tools, observations(false, false));
+
+    assertThat(new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-3"))
+        .isNull();
+  }
+
+  private void stubSessions(AgentToolRegistry tools) {
+    when(tools.invoke(eq("listSessions"), any(), eq(EXECUTION_ID)))
+        .thenReturn(
+            invocation(
+                "listSessions",
+                "result:sessions",
+                List.of(
+                    new EventRepository.SessionSummary(
+                        "session-1", "Miami", null, "anon-1", Instant.now()),
+                    new EventRepository.SessionSummary(
+                        "session-2", "Miami", null, "anon-2", Instant.now()))));
+  }
+
+  private void stubSignal(
+      AgentToolRegistry tools, List<AgentToolResults.SignalObservation> observations) {
+    when(tools.invoke(eq("listSignals"), any(), eq(EXECUTION_ID)))
+        .thenReturn(invocation("listSignals", "result:signals", List.of(WEEKEND_SIGNAL)));
+    when(tools.invoke(eq("calculateSignal"), any(), eq(EXECUTION_ID)))
+        .thenReturn(invocation("calculateSignal", "result:calculation", observations));
+  }
+
+  private List<AgentToolResults.SignalObservation> observations(
+      boolean withSignalConverted, boolean withoutSignalConverted) {
+    return List.of(
+        observation("session-1", true, withSignalConverted),
+        observation("session-2", false, withoutSignalConverted));
+  }
+
+  private AgentToolResults.SignalObservation observation(
+      String sessionId, boolean signalPresent, boolean converted) {
+    return new AgentToolResults.SignalObservation(
+        sessionId, signalPresent, signalPresent ? 70 : 0, converted);
+  }
+
+  private AgentToolInvocation invocation(String toolName, String reference, Object result) {
+    return new AgentToolInvocation(UUID.randomUUID(), toolName, reference, "SUCCEEDED", result);
   }
 
   private MarketingObjective objective() {

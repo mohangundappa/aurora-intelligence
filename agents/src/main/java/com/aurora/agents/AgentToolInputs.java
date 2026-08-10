@@ -19,7 +19,8 @@ public final class AgentToolInputs {
 
   public record Decision(List<SignalSnapshot> signals) {}
 
-  public record SignalCalculation(String sessionId, String signalName) {}
+  public record SignalCalculation(
+      String signalName, String conversionEvent, List<String> sessionIds) {}
 
   public record Empty() {
     public static final Empty INSTANCE = new Empty();

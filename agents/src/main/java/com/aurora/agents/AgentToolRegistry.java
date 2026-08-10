@@ -1,5 +1,6 @@
 package com.aurora.agents;
 
+import com.aurora.common.EventEnvelope;
 import com.aurora.context.ContextService;
 import com.aurora.decision.DecisionPolicy;
 import com.aurora.experiments.ExperimentService;
@@ -94,14 +95,14 @@ public class AgentToolRegistry {
       ExperimentService experiments) {
     Map<String, AgentTool<?, ?>> registered = new LinkedHashMap<>();
     registered.put(
+        "listSessions",
+        tool("listSessions", AgentToolInputs.Empty.class, ignored -> events.recentSessions()));
+    registered.put(
         "searchEvents",
         tool(
             "searchEvents",
             AgentToolInputs.Session.class,
-            input ->
-                input.sessionId() == null || input.sessionId().isBlank()
-                    ? events.recentSessions()
-                    : events.findBySession(input.sessionId())));
+            input -> events.findBySession(input.sessionId())));
     registered.put(
         "getCustomerContext",
         tool(
@@ -122,12 +123,7 @@ public class AgentToolRegistry {
         tool(
             "calculateSignal",
             AgentToolInputs.SignalCalculation.class,
-            input ->
-                signals.calculateAllReadOnly(input.sessionId()).stream()
-                    .filter(
-                        signal ->
-                            input.signalName() == null || signal.name().equals(input.signalName()))
-                    .toList()));
+            input -> calculateSignalAcrossSessions(input, events, signals)));
     registered.put(
         "listModels",
         tool(
@@ -168,6 +164,28 @@ public class AgentToolRegistry {
             AgentToolInputs.Experiment.class,
             input -> experiments.outcomes(input.experimentId())));
     return Map.copyOf(registered);
+  }
+
+  private List<AgentToolResults.SignalObservation> calculateSignalAcrossSessions(
+      AgentToolInputs.SignalCalculation input, EventRepository events, SignalEngine signals) {
+    return input.sessionIds().stream()
+        .map(
+            sessionId -> {
+              List<EventEnvelope> sessionEvents = events.findBySession(sessionId);
+              boolean converted =
+                  sessionEvents.stream()
+                      .anyMatch(event -> input.conversionEvent().equals(event.eventName()));
+              return signals.calculateAllReadOnly(sessionId).stream()
+                  .filter(signal -> signal.name().equals(input.signalName()))
+                  .findFirst()
+                  .map(
+                      signal ->
+                          new AgentToolResults.SignalObservation(
+                              sessionId, signal.value() > 0, signal.value(), converted))
+                  .orElseGet(
+                      () -> new AgentToolResults.SignalObservation(sessionId, false, 0, converted));
+            })
+        .toList();
   }
 
   private <I, O> AgentTool<I, O> tool(String name, Class<I> inputType, Function<I, O> action) {

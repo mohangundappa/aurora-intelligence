@@ -77,9 +77,11 @@ public class DecisionEngine {
     if (personalizationConsent && profile.consent().personalization()) {
       ActivationRequest request =
           new ActivationRequest(
-              decision.channel(), decisionPayload(decision), deliveryIdempotencyKey(decision));
+              decision.channel(),
+              decisionPayload(decision),
+              deliveryIdempotencyKey(sessionId, decision));
       ActivationResult activation =
-          delivery == null ? unconfiguredActivation(decision) : deliverBounded(request);
+          delivery == null ? unconfiguredActivation(request) : deliverBounded(request);
       recordDeliveryAttempt(sessionId, request, activation);
       decision = withActivationResult(decision, activation);
     }
@@ -175,8 +177,10 @@ public class DecisionEngine {
     }
   }
 
-  private String deliveryIdempotencyKey(Decision decision) {
+  private String deliveryIdempotencyKey(String sessionId, Decision decision) {
     return "offer:"
+        + sessionId
+        + ":"
         + decision.action()
         + ":"
         + decision.experience()
@@ -198,10 +202,10 @@ public class DecisionEngine {
     }
   }
 
-  private ActivationResult unconfiguredActivation(Decision decision) {
+  private ActivationResult unconfiguredActivation(ActivationRequest request) {
     return new ActivationResult(
-        decision.channel(),
-        decision.correlationId(),
+        request.destinationId(),
+        request.idempotencyKey(),
         ActivationResult.Status.UNCONFIGURED,
         0,
         0,

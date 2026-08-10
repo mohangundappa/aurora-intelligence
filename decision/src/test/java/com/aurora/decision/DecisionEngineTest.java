@@ -110,27 +110,35 @@ class DecisionEngineTest {
   }
 
   @Test
-  void repeatedDeliveryUsesStableIdempotencyKey() {
+  void deliveryIdempotencyIsStablePerSessionButNotGlobal() {
     java.util.List<String> keys = new java.util.ArrayList<>();
+    java.util.Map<String, ActivationResult> results = new java.util.HashMap<>();
     OfferDelivery delivery =
         request -> {
           keys.add(request.idempotencyKey());
-          return new ActivationResult(
-              request.destinationId(),
+          return results.computeIfAbsent(
               request.idempotencyKey(),
-              ActivationResult.Status.ACCEPTED,
-              1,
-              0,
-              null,
-              Map.of());
+              key ->
+                  new ActivationResult(
+                      request.destinationId(),
+                      key,
+                      ActivationResult.Status.ACCEPTED,
+                      1,
+                      0,
+                      null,
+                      Map.of()));
         };
     CdpProfile profile = profileWithConsent();
     DecisionEngine engine = new DecisionEngine(new DecisionPolicy(), null, null, delivery);
 
     engine.decide("session", profile, List.of(), true, "first-correlation");
     engine.decide("session", profile, List.of(), true, "second-correlation");
+    engine.decide("other-session", profile, List.of(), true, "third-correlation");
 
-    assertThat(keys).hasSize(2).containsOnly(keys.get(0));
+    assertThat(keys).hasSize(3);
+    assertThat(keys.get(0)).isEqualTo(keys.get(1));
+    assertThat(keys.get(2)).isNotEqualTo(keys.get(0));
+    assertThat(results).hasSize(2);
   }
 
   @Test

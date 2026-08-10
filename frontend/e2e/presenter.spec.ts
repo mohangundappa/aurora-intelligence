@@ -87,3 +87,99 @@ test("presenter path renders events, explanations, identity, and outcome", async
     })
     .toBe(true);
 });
+
+test("workforce console keeps refusals and insufficient analyses explicit", async ({
+  page,
+}) => {
+  await page.route("**/api/console/workforce", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        objectives: [
+          {
+            objective: {
+              objectiveId: "objective-demo",
+              name: "Increase direct bookings",
+              description: "A seeded objective",
+              status: "ACTIVE",
+              targetKpi: "BOOKING_COMPLETED",
+              targetValue: 10,
+            },
+            insights: [],
+            proposals: [
+              {
+                proposal: {
+                  proposalId: "proposal-demo",
+                  experimentName: "Headline test",
+                  experimentId: "experiment-demo",
+                  reasoning: "Evidence-backed proposal",
+                  evidenceRefs: ["tool-result-1"],
+                  governanceState: "PROPOSED",
+                },
+                audit: [],
+                activationAttempts: [],
+                analyses: [
+                  {
+                    analysisId: "analysis-demo",
+                    variants: [
+                      {
+                        variant: "control",
+                        exposures: 2,
+                        outcomes: 0,
+                        conversionRate: 0,
+                      },
+                      {
+                        variant: "treatment",
+                        exposures: 1,
+                        outcomes: 0,
+                        conversionRate: 0,
+                      },
+                    ],
+                    sufficientSample: false,
+                    absoluteLift: null,
+                    relativeLift: null,
+                    recommendation: "ITERATE",
+                    reasoning: "Evidence is insufficient.",
+                    evidenceRefs: ["tool-result-2"],
+                  },
+                ],
+              },
+            ],
+            executions: [
+              {
+                executionId: "execution-demo",
+                agentType: "INSIGHTS",
+                status: "REFUSED",
+                startedAt: "2026-08-10T00:00:00Z",
+                completedAt: "2026-08-10T00:00:01Z",
+                latencyMilliseconds: 1000,
+                output: {
+                  code: "NO_SESSIONS",
+                  reason: "No governed sessions matched.",
+                },
+                toolCalls: [],
+                errors: ["NO_SESSIONS"],
+              },
+            ],
+            timings: [],
+          },
+        ],
+        executions: [],
+        activationAttempts: [],
+      }),
+    });
+  });
+
+  await page.goto("/console/workforce");
+  await expect(
+    page.getByRole("heading", {
+      name: "Follow the governed loop from objective to evidence.",
+    }),
+  ).toBeVisible();
+  await expect(page.getByText(/Agent refusal: NO_SESSIONS/)).toBeVisible();
+  await expect(
+    page.getByText("Evidence guard not met. Lift and conclusion are withheld."),
+  ).toBeVisible();
+  await expect(page.getByText("0.0%")).not.toBeVisible();
+  await expect(page.getByRole("button")).toHaveCount(0);
+});

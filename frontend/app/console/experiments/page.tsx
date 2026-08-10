@@ -55,6 +55,7 @@ export default function ExperimentsPage() {
         <SiteHeader surface="console" />
         <nav className="console-nav" aria-label="Console views">
           <Link href="/console">Journey</Link>
+          <Link href="/console/workforce">Workforce loop</Link>
           <Link href="/console/lifecycle">Lifecycle</Link>
           <Link href="/console/experiments">Experiments</Link>
           <Link href="/console/funnel">Funnel</Link>

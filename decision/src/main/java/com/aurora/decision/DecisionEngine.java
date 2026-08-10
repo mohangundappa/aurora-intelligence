@@ -76,7 +76,8 @@ public class DecisionEngine {
     Decision decision = preview(sessionId, profile, signals, personalizationConsent, correlationId);
     if (personalizationConsent && profile.consent().personalization()) {
       ActivationRequest request =
-          new ActivationRequest(decision.channel(), decisionPayload(decision), correlationId);
+          new ActivationRequest(
+              decision.channel(), decisionPayload(decision), deliveryIdempotencyKey(decision));
       ActivationResult activation =
           delivery == null ? unconfiguredActivation(decision) : deliverBounded(request);
       recordDeliveryAttempt(sessionId, request, activation);
@@ -155,7 +156,10 @@ public class DecisionEngine {
   private ActivationResult deliverBounded(ActivationRequest request) {
     Future<ActivationResult> future = DELIVERY_EXECUTOR.submit(() -> delivery.deliver(request));
     try {
-      return future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      ActivationResult result = future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      return result == null
+          ? failedActivation(request, "marketing platform delivery returned no result")
+          : result;
     } catch (TimeoutException exception) {
       future.cancel(true);
       return failedActivation(request, "marketing platform delivery timed out");
@@ -169,6 +173,15 @@ public class DecisionEngine {
               : "marketing platform delivery failed: " + exception.getCause().getMessage();
       return failedActivation(request, reason);
     }
+  }
+
+  private String deliveryIdempotencyKey(Decision decision) {
+    return "offer:"
+        + decision.action()
+        + ":"
+        + decision.experience()
+        + ":"
+        + (decision.experimentId() == null ? "none" : decision.experimentId());
   }
 
   private void recordDeliveryAttempt(

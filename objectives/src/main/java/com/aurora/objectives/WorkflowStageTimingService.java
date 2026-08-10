@@ -60,4 +60,25 @@ public class WorkflowStageTimingService {
         completedAt,
         createdAt);
   }
+
+  public java.util.List<WorkflowStageTiming> findByObjectiveId(String objectiveId) {
+    return jdbc.query(
+        """
+        select timing_id,objective_id,stage,elapsed_milliseconds,recorded_by,
+               started_at,completed_at,created_at
+        from workflow_stage_timings where objective_id = ?
+        order by created_at
+        """,
+        (result, row) ->
+            new WorkflowStageTiming(
+                result.getObject("timing_id", UUID.class),
+                result.getString("objective_id"),
+                WorkflowStage.valueOf(result.getString("stage")),
+                result.getLong("elapsed_milliseconds"),
+                result.getString("recorded_by"),
+                result.getTimestamp("started_at").toInstant(),
+                result.getTimestamp("completed_at").toInstant(),
+                result.getTimestamp("created_at").toInstant()),
+        objectiveId);
+  }
 }

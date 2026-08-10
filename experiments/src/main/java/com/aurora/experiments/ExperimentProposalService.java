@@ -122,11 +122,13 @@ public class ExperimentProposalService {
     requireState(proposal, ExperimentProposal.GovernanceState.APPROVED);
     Instant started = Instant.now();
     ActivationResult audienceResult = registerAudience(proposal);
-    recordAttempt(proposal, "AUDIENCE", audienceRequest(proposal), audienceResult);
-    requireAccepted("audience", audienceResult);
+    ActivationAttempt audienceAttempt =
+        recordAttempt(proposal, "AUDIENCE", audienceRequest(proposal), audienceResult);
+    requireAccepted("audience", audienceResult, audienceAttempt);
     ActivationResult campaignResult = registerCampaign(proposal);
-    recordAttempt(proposal, "CAMPAIGN", campaignRequest(proposal), campaignResult);
-    requireAccepted("campaign", campaignResult);
+    ActivationAttempt campaignAttempt =
+        recordAttempt(proposal, "CAMPAIGN", campaignRequest(proposal), campaignResult);
+    requireAccepted("campaign", campaignResult, campaignAttempt);
     definitions.saveAfterCommit(proposal.toDraftDefinition());
     repository.transition(
         proposalId,
@@ -216,9 +218,11 @@ public class ExperimentProposalService {
     }
   }
 
-  private void requireAccepted(String operation, ActivationResult result) {
+  private void requireAccepted(
+      String operation, ActivationResult result, ActivationAttempt activationAttempt) {
     if (result.status() != ActivationResult.Status.ACCEPTED) {
-      throw new MarTechActivationException(operation, result);
+      throw new MarTechActivationException(
+          operation, result, activationAttempt == null ? null : activationAttempt.attemptId());
     }
   }
 
@@ -247,15 +251,17 @@ public class ExperimentProposalService {
         proposal.proposalId() + ":campaign");
   }
 
-  private void recordAttempt(
+  private ActivationAttempt recordAttempt(
       ExperimentProposal proposal,
       String operation,
       ActivationRequest request,
       ActivationResult result) {
+    ActivationAttempt attempt =
+        ActivationAttempt.from(proposal.proposalId(), operation, request, result);
     if (activationAttempts != null) {
-      activationAttempts.save(
-          ActivationAttempt.from(proposal.proposalId(), operation, request, result));
+      activationAttempts.save(attempt);
     }
+    return attempt;
   }
 
   private ActivationResult failedResult(ActivationRequest request, String reason) {

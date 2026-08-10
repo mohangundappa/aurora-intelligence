@@ -3,6 +3,7 @@ package com.aurora.agents;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -53,6 +54,22 @@ public class MarketingInsightRepository {
             insightId)
         .stream()
         .findFirst();
+  }
+
+  public List<MarketingInsight> findAll() {
+    return jdbc.query(
+        "select insight_id,objective_id,subject,finding,metrics,evidence_refs,correlation_id,created_at "
+            + "from marketing_insights order by created_at desc",
+        (result, row) ->
+            new MarketingInsight(
+                result.getObject("insight_id", UUID.class),
+                result.getString("objective_id"),
+                result.getString("subject"),
+                result.getString("finding"),
+                readMap(result.getString("metrics")),
+                readList(result.getString("evidence_refs")),
+                result.getString("correlation_id"),
+                result.getTimestamp("created_at").toInstant()));
   }
 
   private java.util.Map<String, Object> readMap(String value) {

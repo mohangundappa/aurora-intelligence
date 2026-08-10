@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,6 +25,7 @@ public class AgentToolRegistry implements AgentToolProvider {
   private final AgentToolInvocationRepository invocations;
   private final Map<String, AgentTool<?, ?>> tools;
 
+  @Autowired
   public AgentToolRegistry(
       ObjectMapper mapper,
       AgentToolInvocationRepository invocations,
@@ -36,6 +38,12 @@ public class AgentToolRegistry implements AgentToolProvider {
     this.mapper = mapper;
     this.invocations = invocations;
     this.tools = buildTools(events, context, signals, models, decisions, experiments);
+  }
+
+  AgentToolRegistry(Map<String, AgentTool<?, ?>> tools) {
+    this.mapper = new ObjectMapper();
+    this.invocations = null;
+    this.tools = Map.copyOf(tools);
   }
 
   public List<String> toolNames() {
@@ -105,72 +113,91 @@ public class AgentToolRegistry implements AgentToolProvider {
     Map<String, AgentTool<?, ?>> registered = new LinkedHashMap<>();
     registered.put(
         "listSessions",
-        tool("listSessions", AgentToolInputs.Empty.class, ignored -> events.recentSessions()));
+        tool(
+            "listSessions", AgentToolInputs.Empty.class, true, ignored -> events.recentSessions()));
     registered.put(
         "searchEvents",
         tool(
             "searchEvents",
             AgentToolInputs.Session.class,
+            true,
             input -> events.findBySession(input.sessionId())));
     registered.put(
         "getCustomerContext",
         tool(
             "getCustomerContext",
             AgentToolInputs.Session.class,
+            true,
             input -> context.forSessionReadOnly(input.sessionId())));
     registered.put(
         "listSignals",
-        tool("listSignals", AgentToolInputs.Empty.class, ignored -> signals.registryDefinitions()));
+        tool(
+            "listSignals",
+            AgentToolInputs.Empty.class,
+            true,
+            ignored -> signals.registryDefinitions()));
     registered.put(
         "getSignalDefinition",
         tool(
             "getSignalDefinition",
             AgentToolInputs.Signal.class,
+            true,
             input -> signals.definition(input.signalName())));
     registered.put(
         "calculateSignal",
         tool(
             "calculateSignal",
             AgentToolInputs.SignalCalculation.class,
+            true,
             input -> calculateSignalAcrossSessions(input, events, signals)));
     registered.put(
         "listModels",
         tool(
             "listModels",
             AgentToolInputs.Model.class,
+            true,
             input -> models.versions(input.modelName())));
     registered.put(
         "evaluateModel",
         tool(
             "evaluateModel",
             AgentToolInputs.ModelEvaluation.class,
+            true,
             input -> models.evaluate(input.modelName(), input.version())));
     registered.put(
         "evaluateDecision",
         tool(
             "evaluateDecision",
             AgentToolInputs.Decision.class,
+            true,
             input -> decisions.evaluate(input.signals())));
     registered.put(
         "listExperiments",
-        tool("listExperiments", AgentToolInputs.Empty.class, ignored -> experiments.definitions()));
+        tool(
+            "listExperiments",
+            AgentToolInputs.Empty.class,
+            true,
+            ignored -> experiments.definitions()));
     registered.put(
         "getExperimentPerformance",
         tool(
             "getExperimentPerformance",
             AgentToolInputs.Experiment.class,
+            true,
             input -> experiments.performance(input.experimentId())));
     registered.put(
         "getExperimentExposures",
         tool(
             "getExperimentExposures",
             AgentToolInputs.Experiment.class,
+            true,
             input -> experiments.exposures(input.experimentId())));
     registered.put(
         "getExperimentOutcomes",
         tool(
             "getExperimentOutcomes",
             AgentToolInputs.Experiment.class,
+            true,
             input -> experiments.outcomes(input.experimentId())));
     return Map.copyOf(registered);
   }
@@ -197,7 +224,8 @@ public class AgentToolRegistry implements AgentToolProvider {
         .toList();
   }
 
-  private <I, O> AgentTool<I, O> tool(String name, Class<I> inputType, Function<I, O> action) {
+  private <I, O> AgentTool<I, O> tool(
+      String name, Class<I> inputType, boolean readOnly, Function<I, O> action) {
     return new AgentTool<>() {
       @Override
       public String name() {
@@ -211,7 +239,7 @@ public class AgentToolRegistry implements AgentToolProvider {
 
       @Override
       public boolean readOnly() {
-        return true;
+        return readOnly;
       }
 
       @Override

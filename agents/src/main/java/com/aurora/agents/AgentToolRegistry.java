@@ -41,6 +41,10 @@ public class AgentToolRegistry {
   }
 
   public AgentToolInvocation invoke(String name, Object arguments) {
+    return invoke(name, arguments, null);
+  }
+
+  public AgentToolInvocation invoke(String name, Object arguments, UUID executionId) {
     AgentTool<?, ?> tool =
         Optional.ofNullable(tools.get(name))
             .orElseThrow(() -> new IllegalArgumentException("Unknown agent tool " + name));
@@ -66,7 +70,15 @@ public class AgentToolRegistry {
     Instant completedAt = Instant.now();
     String resultReference = "agent-tool-result:" + callId;
     invocations.save(
-        callId, name, typedArguments, resultReference, result, status, startedAt, completedAt);
+        callId,
+        executionId,
+        name,
+        typedArguments,
+        resultReference,
+        result,
+        status,
+        startedAt,
+        completedAt);
     if ("FAILED".equals(status)) {
       throw failure;
     }
@@ -86,7 +98,10 @@ public class AgentToolRegistry {
         tool(
             "searchEvents",
             AgentToolInputs.Session.class,
-            input -> events.findBySession(input.sessionId())));
+            input ->
+                input.sessionId() == null || input.sessionId().isBlank()
+                    ? events.recentSessions()
+                    : events.findBySession(input.sessionId())));
     registered.put(
         "getCustomerContext",
         tool(

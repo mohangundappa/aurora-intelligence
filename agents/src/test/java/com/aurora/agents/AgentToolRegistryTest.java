@@ -72,6 +72,7 @@ class AgentToolRegistryTest {
     verify(invocations)
         .save(
             any(),
+            any(),
             eq("listSignals"),
             any(),
             startsWith("agent-tool-result:"),

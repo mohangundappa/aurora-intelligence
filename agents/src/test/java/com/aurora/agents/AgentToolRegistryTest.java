@@ -33,6 +33,7 @@ class AgentToolRegistryTest {
     assertThat(registry.toolNames())
         .containsExactlyInAnyOrder(
             "searchEvents",
+            "listSessions",
             "getCustomerContext",
             "listSignals",
             "getSignalDefinition",
@@ -71,6 +72,7 @@ class AgentToolRegistryTest {
 
     verify(invocations)
         .save(
+            any(),
             any(),
             eq("listSignals"),
             any(),

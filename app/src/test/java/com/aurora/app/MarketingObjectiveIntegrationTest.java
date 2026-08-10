@@ -1,5 +1,6 @@
 package com.aurora.app;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -65,6 +66,46 @@ class MarketingObjectiveIntegrationTest {
             post("/api/objectives/integration-objective/status/ACTIVE")
                 .param("actor", "integration-test"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void insightExecutionApiPersistsDeterministicExecutionAndToolEvidenceLink() throws Exception {
+    mvc.perform(
+            post("/api/objectives")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "objectiveId": "insight-integration-objective",
+                      "name": "Increase weekend leisure booking conversion",
+                      "description": "Grounded insight integration test",
+                      "businessGoal": "Increase bookings",
+                      "targetKpi": "BOOKING_COMPLETED",
+                      "targetValue": 10,
+                      "targetAudience": "Weekend leisure guests",
+                      "constraints": {},
+                      "startDate": "2026-01-01",
+                      "endDate": "2026-03-31",
+                      "createdBy": "integration-test"
+                    }
+                    """))
+        .andExpect(status().isOk());
+
+    String executionId =
+        mvc.perform(post("/api/objectives/insight-integration-objective/insights"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+            .andExpect(jsonPath("$.model").value("deterministic"))
+            .andExpect(jsonPath("$.inputTokenCount").value(0))
+            .andReturn()
+            .getResponse()
+            .getContentAsString()
+            .replaceAll(".*\"executionId\":\"([^\"]+)\".*", "$1");
+
+    mvc.perform(get("/api/agent-executions/" + executionId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.executionId").value(executionId))
+        .andExpect(jsonPath("$.toolCalls").isArray());
   }
 
   @Test

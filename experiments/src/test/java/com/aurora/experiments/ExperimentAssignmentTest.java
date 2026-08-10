@@ -37,7 +37,7 @@ class ExperimentAssignmentTest {
                 new ExperimentDefinition.Variant("holdout", 30)),
             "BOOKING_COMPLETED",
             30,
-            ExperimentDefinition.LifecycleStatus.DRAFT);
+            ExperimentDefinition.LifecycleStatus.DEPLOYED);
 
     assertThat(ExperimentAssignment.assign("subject-1", null, definition))
         .isEqualTo(ExperimentAssignment.assign("subject-1", null, definition));
@@ -55,5 +55,22 @@ class ExperimentAssignmentTest {
   @Test
   void measurementWarnsBelowMinimumSample() {
     assertThat(Measurement.conversion(12, 4, 12, 3, 30).insufficientSample()).isTrue();
+  }
+
+  @Test
+  void nonDeployedExperimentIsNotAssigned() {
+    ExperimentDefinition definition =
+        new ExperimentDefinition(
+            "draft-experiment",
+            "Draft experiment",
+            "description",
+            java.util.List.of(
+                new ExperimentDefinition.Variant("control", 50),
+                new ExperimentDefinition.Variant("treatment", 50)),
+            "BOOKING_COMPLETED",
+            30,
+            ExperimentDefinition.LifecycleStatus.DRAFT);
+
+    assertThat(ExperimentAssignment.assign("subject-1", null, definition)).isNull();
   }
 }

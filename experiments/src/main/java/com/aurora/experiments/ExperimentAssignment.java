@@ -3,8 +3,12 @@ package com.aurora.experiments;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ExperimentAssignment {
+  private static final Logger log = LoggerFactory.getLogger(ExperimentAssignment.class);
+
   private ExperimentAssignment() {}
 
   public static String stableSubjectId(String anonymousId, String customerId) {
@@ -13,6 +17,13 @@ public final class ExperimentAssignment {
 
   public static String assign(
       String anonymousId, String customerId, ExperimentDefinition definition) {
+    if (definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DEPLOYED) {
+      log.warn(
+          "Refusing experiment assignment for non-deployed experiment {} with status {}",
+          definition.id(),
+          definition.lifecycleStatus());
+      return null;
+    }
     String subject = stableSubjectId(anonymousId, customerId);
     if (subject == null) throw new IllegalArgumentException("An experiment requires a subject ID");
     try {

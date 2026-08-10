@@ -7,11 +7,15 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ExperimentService {
+  private static final Logger log = LoggerFactory.getLogger(ExperimentService.class);
+
   private final JdbcTemplate jdbc;
   private final ExperimentRegistry registry;
 
@@ -24,6 +28,17 @@ public class ExperimentService {
     ExperimentDefinition definition = registry.definition(experimentId);
     List<ExperimentPerformance.Variant> variants =
         definition.variants().stream().map(variant -> variant(definition, variant.name())).toList();
+    boolean insufficient = preDeployment(definition) || insufficient(definition);
+    String warning =
+        preDeployment(definition)
+            ? "Experiment "
+                + definition.id()
+                + " is "
+                + definition.lifecycleStatus()
+                + " and has not been deployed; lift is withheld until governance deploys it."
+            : "At least "
+                + definition.minimumExposuresPerVariant()
+                + " exposed subjects per variant are required before lift or significance is presented.";
     return new ExperimentPerformance(
         experimentId,
         definition.name(),
@@ -31,10 +46,8 @@ public class ExperimentService {
         definition.primaryOutcomeEvent(),
         definition.minimumExposuresPerVariant(),
         variants,
-        insufficient(definition),
-        "At least "
-            + definition.minimumExposuresPerVariant()
-            + " exposed subjects per variant are required before lift or significance is presented.");
+        insufficient,
+        warning);
   }
 
   public List<ExperimentDefinition> definitions() {
@@ -78,8 +91,16 @@ public class ExperimentService {
   public void recordExposure(Decision decision, CdpProfile profile) {
     if (decision.experimentId() == null) return;
     ExperimentDefinition definition = registry.definition(decision.experimentId());
+    if (definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DEPLOYED) {
+      log.warn(
+          "Refusing exposure recording for non-deployed experiment {} with status {}",
+          definition.id(),
+          definition.lifecycleStatus());
+      return;
+    }
     String variant =
         ExperimentAssignment.assign(profile.anonymousId(), profile.customerId(), definition);
+    if (variant == null) return;
     jdbc.update(
         """
         insert into experiment_exposures(
@@ -144,6 +165,13 @@ public class ExperimentService {
     return definition.variants().stream()
         .mapToInt(variant -> countExposures(definition.id(), variant.name()))
         .anyMatch(count -> count < definition.minimumExposuresPerVariant());
+  }
+
+  private boolean preDeployment(ExperimentDefinition definition) {
+    return switch (definition.lifecycleStatus()) {
+      case DRAFT, TESTED, APPROVED -> true;
+      case DEPLOYED, RETIRED -> false;
+    };
   }
 
   private int countExposures(String experimentId, String variant) {

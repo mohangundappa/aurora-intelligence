@@ -6,20 +6,94 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
 @Component
 public class ExperimentRegistry {
-  private final List<ExperimentDefinition> definitions;
+  private static final Logger log = LoggerFactory.getLogger(ExperimentRegistry.class);
+  private final Map<String, ExperimentDefinition> yamlDefinitions;
+  private final ExperimentDefinitionRepository repository;
+  private volatile Map<String, ExperimentDefinition> definitions;
 
   @SuppressWarnings("unchecked")
+  @Autowired
   public ExperimentRegistry(
       ResourcePatternResolver resolver,
-      @Value("${aurora.experiments.location:classpath:/experiments/*.yaml}") String location) {
+      @Value("${aurora.experiments.location:classpath:/experiments/*.yaml}") String location,
+      ExperimentDefinitionRepository repository) {
+    this.repository = repository;
+    this.yamlDefinitions = loadYaml(resolver, location);
+    try {
+      refresh();
+    } catch (DataAccessException exception) {
+      definitions = Map.copyOf(yamlDefinitions);
+      log.warn(
+          "Database experiment definitions unavailable during startup; serving YAML definitions only: {}",
+          exception.getMessage());
+    }
+  }
+
+  public ExperimentRegistry(ResourcePatternResolver resolver, String location) {
+    this.repository = null;
+    this.yamlDefinitions = loadYaml(resolver, location);
+    refresh();
+  }
+
+  public List<ExperimentDefinition> definitions() {
+    return definitions.values().stream()
+        .sorted(Comparator.comparing(ExperimentDefinition::id))
+        .toList();
+  }
+
+  public ExperimentDefinition definition(String id) {
+    ExperimentDefinition definition = definitions.get(id);
+    if (definition == null) {
+      throw new UnknownExperimentException(id, definitions.keySet().stream().sorted().toList());
+    }
+    return definition;
+  }
+
+  /**
+   * Rebuilds the in-memory view explicitly. Customer-facing resolution reads only this view and
+   * never queries the database per request.
+   *
+   * <p>YAML and database definitions have no precedence: an ID collision is rejected rather than
+   * silently shadowing the committed YAML definition.
+   */
+  public synchronized void refresh() {
+    List<ExperimentDefinition> databaseDefinitions =
+        repository == null ? List.of() : repository.findAll();
+    Map<String, ExperimentDefinition> refreshed = new HashMap<>(yamlDefinitions);
+    databaseDefinitions.forEach(
+        definition -> {
+          if (refreshed.containsKey(definition.id())) {
+            throw new IllegalStateException(
+                "Experiment definition id '"
+                    + definition.id()
+                    + "' is defined in both YAML and the database; collisions are not allowed");
+          }
+          refreshed.put(definition.id(), definition);
+        });
+    definitions = Map.copyOf(refreshed);
+  }
+
+  public void assertCanWrite(String id) {
+    if (definitions.containsKey(id)) {
+      throw new IllegalStateException(
+          "Experiment definition id '" + id + "' is already registered");
+    }
+  }
+
+  private Map<String, ExperimentDefinition> loadYaml(
+      ResourcePatternResolver resolver, String location) {
     Yaml yaml = new Yaml();
     List<ExperimentDefinition> loaded = new ArrayList<>();
     try {
@@ -51,21 +125,9 @@ public class ExperimentRegistry {
     if (loaded.stream().map(ExperimentDefinition::id).distinct().count() != loaded.size()) {
       throw new IllegalStateException("Experiment definition IDs must be unique");
     }
-    definitions = loaded.stream().sorted(Comparator.comparing(ExperimentDefinition::id)).toList();
-  }
-
-  public List<ExperimentDefinition> definitions() {
-    return definitions;
-  }
-
-  public ExperimentDefinition definition(String id) {
-    return definitions.stream()
-        .filter(definition -> definition.id().equals(id))
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new UnknownExperimentException(
-                    id, definitions.stream().map(ExperimentDefinition::id).toList()));
+    Map<String, ExperimentDefinition> byId = new HashMap<>();
+    loaded.forEach(definition -> byId.put(definition.id(), definition));
+    return Map.copyOf(byId);
   }
 
   @SuppressWarnings("unchecked")

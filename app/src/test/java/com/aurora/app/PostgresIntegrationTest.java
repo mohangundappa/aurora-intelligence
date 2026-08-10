@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.aurora.common.SignalDefinition;
 import com.aurora.context.ContextCache;
 import com.aurora.context.ContextService;
+import com.aurora.experiments.ExperimentDefinition;
+import com.aurora.experiments.ExperimentDefinitionService;
+import com.aurora.experiments.ExperimentRegistry;
 import com.aurora.ingest.EventRepository;
 import com.aurora.ingest.IngestService;
 import com.aurora.signals.SignalConsumer;
@@ -12,6 +15,7 @@ import com.aurora.signals.SignalEngine;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +52,8 @@ class PostgresIntegrationTest {
   @Autowired ContextService context;
   @Autowired ContextCache cache;
   @Autowired ObjectMapper mapper;
+  @Autowired ExperimentDefinitionService experimentDefinitions;
+  @Autowired ExperimentRegistry experimentRegistry;
 
   @Test
   void postgresContainerStartsForReplayablePersistence() {
@@ -140,6 +146,25 @@ class PostgresIntegrationTest {
 
     assertThat(signalEngine.evidenceForDefinition(definition, events.findBySession(session)))
         .hasSize(1);
+  }
+
+  @Test
+  void databaseExperimentDefinitionIsResolvableWithoutRedeploy() {
+    ExperimentDefinition definition =
+        new ExperimentDefinition(
+            "database-integration-experiment",
+            "Database integration experiment",
+            "Loaded from the experiment definitions database tables.",
+            List.of(
+                new ExperimentDefinition.Variant("control", 50),
+                new ExperimentDefinition.Variant("treatment", 50)),
+            "BOOKING_COMPLETED",
+            30,
+            ExperimentDefinition.LifecycleStatus.DEPLOYED);
+
+    experimentDefinitions.save(definition);
+
+    assertThat(experimentRegistry.definition(definition.id())).isEqualTo(definition);
   }
 
   @Test

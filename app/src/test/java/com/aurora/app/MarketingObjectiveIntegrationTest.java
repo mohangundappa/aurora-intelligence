@@ -1,6 +1,7 @@
 package com.aurora.app;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -64,5 +65,30 @@ class MarketingObjectiveIntegrationTest {
             post("/api/objectives/integration-objective/status/ACTIVE")
                 .param("actor", "integration-test"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void invalidObjectiveReturnsBadRequestWithValidationMessage() throws Exception {
+    mvc.perform(
+            post("/api/objectives")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "objectiveId": "invalid-objective",
+                      "name": "",
+                      "description": "Invalid objective",
+                      "businessGoal": "Increase revenue",
+                      "targetKpi": "BOOKING_COMPLETED",
+                      "targetValue": 25,
+                      "targetAudience": "Miami families",
+                      "constraints": {},
+                      "startDate": "2026-03-31",
+                      "endDate": "2026-01-01",
+                      "createdBy": "integration-test"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("name is required"));
   }
 }

@@ -32,6 +32,30 @@ class ExperimentPolicyValidatorTest {
         });
   }
 
+  @Test
+  void applicationContextStartsWhenPolicyReferenceIsDatabaseBacked() {
+    DecisionPolicy policy = policyWithExperiment("database-experiment");
+    ExperimentRegistry registry = mock(ExperimentRegistry.class);
+    when(registry.definition("database-experiment"))
+        .thenReturn(
+            new com.aurora.experiments.ExperimentDefinition(
+                "database-experiment",
+                "Database experiment",
+                "Database experiment description",
+                List.of(
+                    new com.aurora.experiments.ExperimentDefinition.Variant("control", 50),
+                    new com.aurora.experiments.ExperimentDefinition.Variant("treatment", 50)),
+                "BOOKING_COMPLETED",
+                30,
+                com.aurora.experiments.ExperimentDefinition.LifecycleStatus.DEPLOYED));
+
+    new ApplicationContextRunner()
+        .withBean(DecisionPolicy.class, () -> policy)
+        .withBean(ExperimentRegistry.class, () -> registry)
+        .withUserConfiguration(ExperimentPolicyValidator.class)
+        .run(context -> assertThat(context).hasNotFailed());
+  }
+
   private DecisionPolicy policyWithExperiment(String experimentId) {
     DecisionPolicy policy = mock(DecisionPolicy.class);
     when(policy.experimentIds()).thenReturn(List.of(experimentId));

@@ -19,11 +19,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DecisionEngine {
+  private static final Logger log = LoggerFactory.getLogger(DecisionEngine.class);
   private static final long DELIVERY_TIMEOUT_MILLIS = 250;
   private static final ExecutorService DELIVERY_EXECUTOR =
       Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("martech-delivery-", 0).factory());
@@ -175,8 +178,10 @@ public class DecisionEngine {
       activationAttempts.save(
           ActivationAttempt.fromContext(
               "decision:" + contextId, "OFFER_DELIVERY", request, result));
-    } catch (RuntimeException ignored) {
+    } catch (RuntimeException exception) {
       // A diagnostic write must never turn a customer decision into an error.
+      log.warn(
+          "failed to record martech activation attempt for {}", request.destination(), exception);
     }
   }
 

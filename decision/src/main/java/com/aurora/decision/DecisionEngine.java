@@ -181,7 +181,7 @@ public class DecisionEngine {
     } catch (RuntimeException exception) {
       // A diagnostic write must never turn a customer decision into an error.
       log.warn(
-          "failed to record martech activation attempt for {}", request.destination(), exception);
+          "failed to record martech activation attempt for {}", request.destinationId(), exception);
     }
   }
 

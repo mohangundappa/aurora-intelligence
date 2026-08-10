@@ -174,8 +174,8 @@ public class AnalyticsAgent {
             + " The comparison uses a two-sided 5% significance threshold; the observed z-score was "
             + formatDecimal(zScore)
             + ". Based on the baseline rate and the exposures actually observed in both arms, the approximate minimum detectable effect at 80% power is "
-            + formatPercent(minimumDetectableEffect)
-            + " (percentage points). "
+            + formatPercentagePoints(minimumDetectableEffect)
+            + ". "
             + (significant
                 ? "This randomized comparison supports a directional conclusion at that significance threshold."
                 : "The observed difference did not meet the significance threshold, so the result does not support a directional conclusion yet.")
@@ -238,6 +238,10 @@ public class AnalyticsAgent {
 
   private String formatPercent(double value) {
     return "%.1f%%".formatted(value * 100);
+  }
+
+  private String formatPercentagePoints(double value) {
+    return "%.1f percentage points".formatted(value * 100);
   }
 
   private String formatDecimal(double value) {

@@ -206,6 +206,7 @@ function ExecutionCard({ execution }: { execution: Execution }) {
 export default function WorkforcePage() {
   const [view, setView] = useState<WorkforceView | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void getApi<WorkforceView>("/api/console/workforce")
@@ -216,7 +217,8 @@ export default function WorkforcePage() {
             ? reason.message
             : "Unable to load workforce data.",
         );
-      });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -245,6 +247,14 @@ export default function WorkforcePage() {
           <p className="console-error" role="alert">
             {error}
           </p>
+        )}
+        {!error && loading && (
+          <section className="console-card console-wide" role="status">
+            <h2>Loading workforce data</h2>
+            <p className="muted">
+              Reading the governed objective-to-evidence loop…
+            </p>
+          </section>
         )}
         {!error && view && view.objectives.length === 0 && (
           <section className="console-card console-wide">

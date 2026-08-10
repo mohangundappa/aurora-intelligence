@@ -183,3 +183,29 @@ test("workforce console keeps refusals and insufficient analyses explicit", asyn
   await expect(page.getByText("0.0%")).not.toBeVisible();
   await expect(page.getByRole("button")).toHaveCount(0);
 });
+
+test("workforce console announces loading separately from an empty state", async ({
+  page,
+}) => {
+  await page.route("**/api/console/workforce", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        objectives: [],
+        executions: [],
+        activationAttempts: [],
+      }),
+    });
+  });
+
+  await page.goto("/console/workforce");
+  await expect(
+    page
+      .locator('[role="status"]')
+      .filter({ hasText: "Loading workforce data" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "No objectives yet" }),
+  ).toBeVisible();
+});

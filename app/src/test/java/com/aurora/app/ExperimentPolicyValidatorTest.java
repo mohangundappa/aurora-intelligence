@@ -56,6 +56,27 @@ class ExperimentPolicyValidatorTest {
         .run(context -> assertThat(context).hasNotFailed());
   }
 
+  @Test
+  void unavailableDatabaseDoesNotReportAReferenceAsUnregistered() {
+    ExperimentRegistry registry = mock(ExperimentRegistry.class);
+    when(registry.isDatabaseViewIncomplete()).thenReturn(true);
+    when(registry.definition("missing-experiment"))
+        .thenThrow(new UnknownExperimentException("missing-experiment", List.of()));
+
+    new ApplicationContextRunner()
+        .withBean(DecisionPolicy.class, () -> policyWithExperiment("missing-experiment"))
+        .withBean(ExperimentRegistry.class, () -> registry)
+        .withUserConfiguration(ExperimentPolicyValidator.class)
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(context.getStartupFailure())
+                  .hasStackTraceContaining(
+                      "Cannot validate decision policy experiment 'missing-experiment' because database experiment definitions are unavailable")
+                  .hasStackTraceContaining("Unknown experiment 'missing-experiment'");
+            });
+  }
+
   private DecisionPolicy policyWithExperiment(String experimentId) {
     DecisionPolicy policy = mock(DecisionPolicy.class);
     when(policy.experimentIds()).thenReturn(List.of(experimentId));

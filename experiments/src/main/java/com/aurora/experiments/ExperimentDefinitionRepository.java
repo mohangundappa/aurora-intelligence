@@ -37,21 +37,24 @@ public class ExperimentDefinitionRepository {
     List<VariantRow> variants =
         jdbc.query(
             """
-            select experiment_id,variant_name,allocation_percentage
+            select experiment_id,variant_name,allocation_percentage,variant_order
             from experiment_definition_variants
-            order by experiment_id,variant_name
+            order by experiment_id,variant_order
             """,
             (result, row) ->
                 new VariantRow(
                     result.getString("experiment_id"),
                     result.getString("variant_name"),
-                    result.getInt("allocation_percentage")));
+                    result.getInt("allocation_percentage"),
+                    result.getInt("variant_order")));
     Map<String, List<ExperimentDefinition.Variant>> variantsByDefinition = new LinkedHashMap<>();
     variants.forEach(
         variant ->
             variantsByDefinition
                 .computeIfAbsent(variant.experimentId(), ignored -> new ArrayList<>())
-                .add(new ExperimentDefinition.Variant(variant.name(), variant.allocation())));
+                .add(
+                    variant.ordinal(),
+                    new ExperimentDefinition.Variant(variant.name(), variant.allocation())));
     variantsByDefinition.keySet().stream()
         .filter(id -> !definitions.containsKey(id))
         .findFirst()
@@ -89,19 +92,19 @@ public class ExperimentDefinitionRepository {
         definition.primaryOutcomeEvent(),
         definition.minimumExposuresPerVariant(),
         definition.lifecycleStatus().name());
-    definition
-        .variants()
-        .forEach(
-            variant ->
-                jdbc.update(
-                    """
-                    insert into experiment_definition_variants(
-                      experiment_id,variant_name,allocation_percentage)
-                    values (?,?,?)
-                    """,
-                    definition.id(),
-                    variant.name(),
-                    variant.allocationPercentage()));
+    for (int ordinal = 0; ordinal < definition.variants().size(); ordinal++) {
+      ExperimentDefinition.Variant variant = definition.variants().get(ordinal);
+      jdbc.update(
+          """
+          insert into experiment_definition_variants(
+            experiment_id,variant_name,allocation_percentage,variant_order)
+          values (?,?,?,?)
+          """,
+          definition.id(),
+          variant.name(),
+          variant.allocationPercentage(),
+          ordinal);
+    }
   }
 
   public record ExperimentDefinitionRow(
@@ -112,5 +115,5 @@ public class ExperimentDefinitionRepository {
       int minimumExposures,
       String lifecycleStatus) {}
 
-  public record VariantRow(String experimentId, String name, int allocation) {}
+  public record VariantRow(String experimentId, String name, int allocation, int ordinal) {}
 }

@@ -27,6 +27,14 @@ public class SignalEngine {
   }
 
   public List<SignalSnapshot> calculateAll(String sessionId) {
+    return calculateAll(sessionId, true);
+  }
+
+  public List<SignalSnapshot> calculateAllReadOnly(String sessionId) {
+    return calculateAll(sessionId, false);
+  }
+
+  private List<SignalSnapshot> calculateAll(String sessionId, boolean persist) {
     List<EventEnvelope> events =
         jdbc.query(
             """
@@ -41,7 +49,7 @@ public class SignalEngine {
             definition ->
                 java.util.Map.entry(definition, evidenceForDefinition(definition, events)))
         .filter(entry -> eligible(entry.getKey(), entry.getValue()))
-        .map(entry -> calculate(entry.getKey(), entry.getValue()))
+        .map(entry -> calculate(entry.getKey(), entry.getValue(), persist))
         .toList();
   }
 
@@ -65,7 +73,8 @@ public class SignalEngine {
     return events.stream().filter(event -> event.consent().personalization()).toList();
   }
 
-  private SignalSnapshot calculate(SignalDefinition definition, List<EventEnvelope> events) {
+  private SignalSnapshot calculate(
+      SignalDefinition definition, List<EventEnvelope> events, boolean persist) {
     SignalCalculation calculation =
         registry.calculator(definition.name()).calculate(definition, events);
     Instant now = Instant.now();
@@ -91,7 +100,7 @@ public class SignalEngine {
             latest.sessionId(),
             latest.customerId(),
             latest.correlationId());
-    persist(snapshot);
+    if (persist) persist(snapshot);
     return snapshot;
   }
 

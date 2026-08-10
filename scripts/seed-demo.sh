@@ -10,6 +10,7 @@ TRUNCATE raw_events, quarantined_events, derived_signals, decisions,
   experiment_exposures, experiment_outcomes, signal_lifecycle_audit,
   signal_lifecycle, identity_links, cdp_profiles, marketing_objective_audit,
   workflow_stage_timings, agent_tool_calls, agent_executions, marketing_insights,
+  experiment_analyses,
   experiment_governance_audit, experiment_proposal_variants, experiment_proposals,
   experiment_definition_variants, experiment_definitions, marketing_objectives,
   martech_activation_attempts RESTART IDENTITY CASCADE;

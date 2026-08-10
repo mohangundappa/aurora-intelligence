@@ -98,9 +98,10 @@ the prominent warning requiring 30 exposed subjects per variant and withholds
 lift/significance claims.
 
 After `seed-demo.sh --reset`, the deterministic 100-session seed typically
-produces more than 30 exposures per arm. A clean reset seed verified 56 control
-and 45 treatment exposures; an interactive walkthrough can add rows (the
-observed live state was 59 control and 47 treatment). Outcome rows are
+produces more than 30 exposures per arm. A clean reset seed verified 55 control
+and 45 treatment exposures, summing to the 100 seeded sessions; an interactive
+walkthrough adds rows on top of that, so a total above 100 means the state is no
+longer clean. Outcome rows are
 `OFFER_CLICKED`, `BOOKING_STARTED`,
 and `BOOKING_COMPLETED`, joined to decisions through `correlationId`. Say
 “synthetic demo volume,” not “commercial lift.”

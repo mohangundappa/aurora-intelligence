@@ -80,9 +80,9 @@ public class InsightsAgent {
         UUID.randomUUID(),
         objective.objectiveId(),
         relevantSignal.name() + " conversion comparison",
-        "Sessions with "
+        "In the observed data, sessions with "
             + relevantSignal.name()
-            + " had "
+            + " showed "
             + direction
             + " "
             + objective.targetKpi()
@@ -90,7 +90,7 @@ public class InsightsAgent {
             + formatPercent(withSignalRate)
             + " vs "
             + formatPercent(withoutSignalRate)
-            + ").",
+            + "); this observed association should be tested by an experiment.",
         metrics,
         List.of(
             sessionsCall.resultReference(),

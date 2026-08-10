@@ -46,7 +46,9 @@ class InsightsAgentTest {
         new InsightsAgent(tools).derive(objective(), EXECUTION_ID, "correlation-1");
 
     assertThat(insight).isNotNull();
-    assertThat(insight.finding()).contains("higher", "100.0%", "0.0%");
+    assertThat(insight.finding())
+        .contains(
+            "observed data", "higher", "100.0%", "0.0%", "association", "tested by an experiment");
     assertThat(insight.metrics())
         .containsEntry("signalName", "weekend-getaway-affinity")
         .containsEntry("targetKpi", "BOOKING_COMPLETED")
@@ -76,8 +78,8 @@ class InsightsAgentTest {
     MarketingInsight first = agent.derive(objective(), EXECUTION_ID, "correlation-1");
     MarketingInsight second = agent.derive(objective(), EXECUTION_ID, "correlation-2");
 
-    assertThat(first.finding()).contains("higher");
-    assertThat(second.finding()).contains("lower");
+    assertThat(first.finding()).contains("higher", "association", "tested by an experiment");
+    assertThat(second.finding()).contains("lower", "association", "tested by an experiment");
     assertThat(first.metrics().get("conversionRateDifference"))
         .isNotEqualTo(second.metrics().get("conversionRateDifference"));
   }

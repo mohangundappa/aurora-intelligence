@@ -15,6 +15,13 @@ public class ExperimentPolicyValidator {
               try {
                 experiments.definition(id);
               } catch (UnknownExperimentException exception) {
+                if (experiments.isDatabaseViewIncomplete()) {
+                  throw new IllegalStateException(
+                      "Cannot validate decision policy experiment '"
+                          + id
+                          + "' because database experiment definitions are unavailable",
+                      exception);
+                }
                 throw new IllegalStateException(
                     "Decision policy references experiment '"
                         + id

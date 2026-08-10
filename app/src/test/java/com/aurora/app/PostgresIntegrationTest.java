@@ -156,8 +156,8 @@ class PostgresIntegrationTest {
             "Database integration experiment",
             "Loaded from the experiment definitions database tables.",
             List.of(
-                new ExperimentDefinition.Variant("control", 50),
-                new ExperimentDefinition.Variant("treatment", 50)),
+                new ExperimentDefinition.Variant("treatment", 20),
+                new ExperimentDefinition.Variant("control", 80)),
             "BOOKING_COMPLETED",
             30,
             ExperimentDefinition.LifecycleStatus.DEPLOYED);

@@ -20,7 +20,7 @@ class ExperimentDefinitionRepositoryTest {
                 new ExperimentDefinitionRepository.ExperimentDefinitionRow(
                     "invalid", "Invalid", "Invalid", "BOOKING_COMPLETED", 30, "DEPLOYED")))
         .thenReturn(
-            List.of(new ExperimentDefinitionRepository.VariantRow("invalid", "control", 50)));
+            List.of(new ExperimentDefinitionRepository.VariantRow("invalid", "control", 50, 0)));
 
     assertThatThrownBy(() -> new ExperimentDefinitionRepository(jdbc).findAll())
         .isInstanceOf(IllegalArgumentException.class)

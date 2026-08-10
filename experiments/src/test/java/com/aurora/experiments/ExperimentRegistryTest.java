@@ -74,6 +74,28 @@ class ExperimentRegistryTest {
     assertThat(registry.definitions())
         .extracting(ExperimentDefinition::id)
         .containsExactly("destination-experience-v1");
+    assertThat(registry.isDatabaseViewIncomplete()).isTrue();
+    assertThatThrownBy(() -> registry.assertCanWrite("new-experiment"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("database experiment definitions are unavailable");
+  }
+
+  @Test
+  void successfulRefreshRecoversTheIncompleteDatabaseView() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    when(repository.findAll())
+        .thenThrow(new DataAccessResourceFailureException("database unavailable"))
+        .thenReturn(List.of(definition("database-experiment")));
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(), "classpath:/experiments/*.yaml", repository);
+
+    assertThat(registry.isDatabaseViewIncomplete()).isTrue();
+    registry.refresh();
+    assertThat(registry.isDatabaseViewIncomplete()).isFalse();
+    assertThat(registry.definition("database-experiment"))
+        .isEqualTo(definition("database-experiment"));
   }
 
   @Test

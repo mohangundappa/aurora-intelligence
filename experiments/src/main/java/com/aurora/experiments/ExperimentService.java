@@ -3,11 +3,15 @@ package com.aurora.experiments;
 import com.aurora.common.CdpProfile;
 import com.aurora.common.Decision;
 import com.aurora.common.EventEnvelope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ExperimentService {
+  private static final Logger log = LoggerFactory.getLogger(ExperimentService.class);
+
   private final JdbcTemplate jdbc;
   private final ExperimentRegistry registry;
 
@@ -20,6 +24,19 @@ public class ExperimentService {
     ExperimentDefinition definition = registry.definition(experimentId);
     java.util.List<ExperimentPerformance.Variant> variants =
         definition.variants().stream().map(variant -> variant(definition, variant.name())).toList();
+    boolean insufficient =
+        definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DEPLOYED
+            || insufficient(definition);
+    String warning =
+        definition.lifecycleStatus() == ExperimentDefinition.LifecycleStatus.DEPLOYED
+            ? "At least "
+                + definition.minimumExposuresPerVariant()
+                + " exposed subjects per variant are required before lift or significance is presented."
+            : "Experiment "
+                + definition.id()
+                + " is "
+                + definition.lifecycleStatus()
+                + " and is not serving; lift is withheld.";
     return new ExperimentPerformance(
         experimentId,
         definition.name(),
@@ -27,10 +44,8 @@ public class ExperimentService {
         definition.primaryOutcomeEvent(),
         definition.minimumExposuresPerVariant(),
         variants,
-        insufficient(definition),
-        "At least "
-            + definition.minimumExposuresPerVariant()
-            + " exposed subjects per variant are required before lift or significance is presented.");
+        insufficient,
+        warning);
   }
 
   public java.util.List<ExperimentDefinition> definitions() {
@@ -40,8 +55,16 @@ public class ExperimentService {
   public void recordExposure(Decision decision, CdpProfile profile) {
     if (decision.experimentId() == null) return;
     ExperimentDefinition definition = registry.definition(decision.experimentId());
+    if (definition.lifecycleStatus() != ExperimentDefinition.LifecycleStatus.DEPLOYED) {
+      log.warn(
+          "Refusing exposure recording for non-deployed experiment {} with status {}",
+          definition.id(),
+          definition.lifecycleStatus());
+      return;
+    }
     String variant =
         ExperimentAssignment.assign(profile.anonymousId(), profile.customerId(), definition);
+    if (variant == null) return;
     jdbc.update(
         """
         insert into experiment_exposures(

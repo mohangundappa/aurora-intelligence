@@ -35,11 +35,70 @@ class AgentEvaluationTest {
     List<AgentEvaluationScenario> scenarios = AgentEvaluationDataset.load(new ObjectMapper());
 
     AgentEvaluationReport report =
-        AgentEvaluationHarness.run(scenarios, this::runDeterministicRuntime);
+        AgentEvaluationHarness.run(
+            scenarios, this::runDeterministicRuntime, new EvaluationTools("").readOnlyToolNames());
 
     assertThat(report.summary()).isNotBlank();
     assertThat(report.failed()).withFailMessage(report::summary).isZero();
     assertThat(report.passed()).isEqualTo(scenarios.size());
+  }
+
+  @Test
+  void causalLanguageTripwireFailsForKnownOverclaimingPhrase() {
+    AgentEvaluationScenario scenario =
+        AgentEvaluationDataset.load(new ObjectMapper()).stream()
+            .filter(candidate -> candidate.id().equals("analytics-causal-language-tripwire"))
+            .findFirst()
+            .orElseThrow();
+
+    AgentEvaluationReport report =
+        AgentEvaluationHarness.run(
+            List.of(scenario),
+            ignored ->
+                new AgentEvaluationRun(
+                    new Object(),
+                    null,
+                    List.of(),
+                    List.of("fixture:evidence"),
+                    "The treatment drives more bookings.",
+                    true,
+                    false,
+                    "ITERATE",
+                    null),
+            new EvaluationTools("").readOnlyToolNames());
+
+    assertThat(report.failed()).isEqualTo(1);
+    assertThat(report.summary()).contains("client text must not imply causation");
+  }
+
+  @Test
+  void emptyOrUnspecifiedRefusalAssertionsFailLoudly() {
+    AgentEvaluationScenario empty =
+        new AgentEvaluationScenario("empty", "ANALYTICS", "fixture", null, List.of(), Map.of());
+    AgentEvaluationScenario missingCode =
+        new AgentEvaluationScenario(
+            "missing-code", "ANALYTICS", "fixture", null, List.of("EXPECTED_REFUSAL"), Map.of());
+
+    AgentEvaluationReport report =
+        AgentEvaluationHarness.run(
+            List.of(empty, missingCode),
+            ignored ->
+                new AgentEvaluationRun(
+                    null,
+                    AgentResult.refused("SOME_CODE", "reason").refusal(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    false,
+                    false,
+                    null,
+                    null),
+            new EvaluationTools("").readOnlyToolNames());
+
+    assertThat(report.failed()).isEqualTo(2);
+    assertThat(report.summary())
+        .contains("scenario must declare at least one obligation")
+        .contains("refusal scenario must declare and return expected refusal code");
   }
 
   private AgentEvaluationRun runDeterministicRuntime(AgentEvaluationScenario scenario) {
@@ -183,6 +242,11 @@ class AgentEvaluationTest {
           "getExperimentPerformance",
           "getExperimentExposures",
           "getExperimentOutcomes");
+    }
+
+    @Override
+    public java.util.Set<String> readOnlyToolNames() {
+      return java.util.Set.copyOf(toolNames());
     }
 
     @Override

@@ -91,5 +91,12 @@
     "fixture": "analytics-grounded",
     "fixtureData": {"arms": 2, "exposures": [40, 40], "primaryOutcome": "BOOKING_COMPLETED"},
     "obligations": ["GROUNDED_EVIDENCE", "OBSERVATIONAL_LANGUAGE", "NO_CAUSAL_LANGUAGE", "READ_ONLY_TOOLS"]
+  },
+  {
+    "id": "analytics-causal-language-tripwire",
+    "agent": "ANALYTICS",
+    "fixture": "analytics-causal-language",
+    "fixtureData": {"textReview": "known causal overclaim phrase"},
+    "obligations": ["NO_CAUSAL_LANGUAGE"]
   }
 ]

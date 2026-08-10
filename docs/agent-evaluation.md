@@ -30,3 +30,10 @@ with the same loaded dataset. The adapter must return the runtime's output or
 refusal, cited evidence references, client-facing reasoning, and observed tool
 calls. The harness then applies the same obligations, so replacing the deterministic
 adapter with an LLM-backed adapter does not replace the governance bar.
+
+The text checks are regression tripwires, not proofs of semantic safety. A keyword
+scan cannot prove that a sentence has no causal implication, and checking for the
+word "observed" cannot prove that wording is honest. They are sound only as checks
+against known failure modes in the deterministic implementation, whose output has
+been reviewed. An LLM-backed runtime requires human review of generated
+client-facing text in addition to this suite.

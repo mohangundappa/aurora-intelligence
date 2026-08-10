@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,14 @@ public class AgentToolRegistry implements AgentToolProvider {
 
   public List<String> toolNames() {
     return List.copyOf(tools.keySet());
+  }
+
+  @Override
+  public Set<String> readOnlyToolNames() {
+    return tools.values().stream()
+        .filter(AgentTool::readOnly)
+        .map(AgentTool::name)
+        .collect(java.util.stream.Collectors.toUnmodifiableSet());
   }
 
   public AgentToolInvocation invoke(String name, Object arguments) {
@@ -198,6 +207,11 @@ public class AgentToolRegistry implements AgentToolProvider {
       @Override
       public Class<I> inputType() {
         return inputType;
+      }
+
+      @Override
+      public boolean readOnly() {
+        return true;
       }
 
       @Override

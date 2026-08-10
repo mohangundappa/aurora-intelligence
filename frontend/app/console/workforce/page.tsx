@@ -154,16 +154,24 @@ function refusalFromOutput(output: unknown) {
 
 function ExecutionCard({ execution }: { execution: Execution }) {
   const refusal = refusalFromOutput(execution.output);
-  const refused =
-    execution.status.toUpperCase().includes("REFUS") ||
-    execution.errors.length > 0 ||
-    refusal !== null;
-  const displayedStatus = refused ? "REFUSED" : execution.status;
+  const normalizedStatus = execution.status.toUpperCase();
+  const legacyRefusal = normalizedStatus === "SUCCEEDED" && refusal !== null;
+  const refused = normalizedStatus.includes("REFUS") || legacyRefusal;
+  const failed =
+    !refused &&
+    (normalizedStatus.includes("FAIL") || execution.errors.length > 0);
+  const displayedStatus = legacyRefusal ? "REFUSED" : execution.status;
   return (
-    <article className={`execution-card ${refused ? "refusal" : ""}`}>
+    <article
+      className={`execution-card ${refused ? "refusal" : failed ? "failure" : ""}`}
+    >
       <div className="event-row">
         <strong>{execution.agentType}</strong>
-        <span className={`pill ${refused ? "pill-refused" : ""}`}>
+        <span
+          className={`pill ${
+            refused ? "pill-refused" : failed ? "pill-failed" : ""
+          }`}
+        >
           {displayedStatus}
         </span>
       </div>
@@ -175,6 +183,13 @@ function ExecutionCard({ execution }: { execution: Execution }) {
                 execution.errors.join(" · ") ||
                 "See the recorded output for the refusal code and reason."
               }`}
+        </p>
+      )}
+      {failed && (
+        <p className="failure-copy" role="alert">
+          Execution failed:{" "}
+          {execution.errors.join(" · ") ||
+            "See the recorded output for details."}
         </p>
       )}
       <p className="muted">

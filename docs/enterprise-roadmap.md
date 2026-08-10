@@ -10,7 +10,7 @@ scale, provider parity, or commercial lift.
 |---|---|---|
 | Event ingestion | Spring endpoint, validation, PostgreSQL raw record, Redpanda publication, quarantine | Managed ingress, authentication, schema registry, tenant quotas, partitioning, DLQ operations |
 | Replay | Session-scoped raw-event republish | Governed replay jobs, backfill windows, idempotent batch orchestration and audit |
-| CDP | PostgreSQL simulator behind `CdpAdapter` | Provider adapter, provider SLAs, consent/identity contract tests, rate-limit handling |
+| CDP and MarTech hand-off | PostgreSQL simulator behind `CdpAdapter`, plus provider-neutral audience, offer-delivery, and campaign-registration seams | Provider adapters, authentication, provider SLAs, consent/identity contract tests, rate-limit and asynchronous retry handling |
 | Identity | Explicit simulated `CUSTOMER_IDENTIFIED`; anonymous history retained | Provider namespace/graph mapping, merge/unmerge governance, deletion propagation |
 | Signals | YAML + Spring calculator, persisted snapshot/explanation | Versioned registry service, independent workers, lineage, owner approval and SLOs |
 | Models | Baseline scoring, offline evaluation, deploy/rollback, basic drift indicator | Feature store, signed artifacts, canary/shadow deployment, real drift/quality monitoring |
@@ -36,6 +36,28 @@ licensed product/edition.
 
 The implementation partner owns mapping and contract tests. The CDP vendor owns
 provider behavior. Client IT owns credentials and production operations.
+
+### MarTech activation seam
+
+The showcase now exercises `AudienceActivation`, `OfferDelivery`, and
+`CampaignRegistration` through deterministic simulated implementations. Their
+shared contract includes destination identity, an opaque payload, an
+idempotency key, accepted/rejected/partial outcomes, explicit rejection
+reasons, counts, and opaque provider metadata. Repeating an idempotency key
+returns the original result rather than double-activating.
+
+Aurora enforces consent and eligibility before subject-level offer delivery;
+the CDP or marketing platform remains authoritative for production consent,
+suppression, identity, destination delivery, and campaign operations. Human
+approval still gates experiment activation. No agent or provider adapter can
+approve, deploy, retire, or mutate decision policy.
+
+The simulator is not evidence of production integration parity. It does not
+prove authentication, authorization, rate limits, asynchronous processing,
+provider-specific quirks, data residency, SDK/API contract drift, or vendor
+failure semantics. An implementation partner must build provider adapters and
+contract tests against the client's licensed Adobe, Salesforce, Tealium,
+Segment, or other platform.
 
 ## High-volume path
 

@@ -37,6 +37,11 @@ public class ExperimentProposalController {
     return proposals.audit(proposalId);
   }
 
+  @GetMapping("/{proposalId}/activation-attempts")
+  public List<ActivationAttempt> activationAttempts(@PathVariable UUID proposalId) {
+    return proposals.activationAttempts(proposalId);
+  }
+
   @PostMapping("/{proposalId}/approve")
   public ExperimentProposal approve(
       @PathVariable UUID proposalId, @RequestBody TransitionRequest request) {
@@ -65,6 +70,26 @@ public class ExperimentProposalController {
   @ResponseStatus(HttpStatus.CONFLICT)
   public Map<String, String> illegalTransition(IllegalStateException exception) {
     return Map.of("error", exception.getMessage());
+  }
+
+  @ExceptionHandler(MarTechActivationException.class)
+  @ResponseStatus(HttpStatus.BAD_GATEWAY)
+  public Map<String, String> providerFailure(MarTechActivationException exception) {
+    return Map.of(
+        "error",
+        exception.getMessage(),
+        "operation",
+        exception.operation(),
+        "destination",
+        exception.result().destinationId(),
+        "status",
+        exception.result().status().name(),
+        "acceptedCount",
+        Integer.toString(exception.result().acceptedCount()),
+        "rejectedCount",
+        Integer.toString(exception.result().rejectedCount()),
+        "providerReason",
+        exception.result().reason());
   }
 
   public record TransitionRequest(String actor, String reason) {}

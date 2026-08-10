@@ -102,12 +102,13 @@ public class ExperimentProposalRepository {
     jdbc.update(
         """
         insert into experiment_governance_audit(
-          proposal_id,action,actor,from_state,to_state,reason)
-        values (?,?,?,?,?,?)
+          proposal_id,action,actor,actor_verification_status,from_state,to_state,reason)
+        values (?,?,?,?,?,?,?)
         """,
         proposalId,
         to.name(),
         actor,
+        "SELF_DECLARED_UNVERIFIED",
         from.name(),
         to.name(),
         reason);
@@ -116,7 +117,7 @@ public class ExperimentProposalRepository {
   public List<GovernanceAudit> audit(UUID proposalId) {
     return jdbc.query(
         """
-        select proposal_id,action,actor,from_state,to_state,reason,created_at
+        select proposal_id,action,actor,actor_verification_status,from_state,to_state,reason,created_at
         from experiment_governance_audit where proposal_id=? order by created_at
         """,
         (result, row) ->
@@ -124,6 +125,7 @@ public class ExperimentProposalRepository {
                 result.getObject("proposal_id", UUID.class),
                 result.getString("action"),
                 result.getString("actor"),
+                result.getString("actor_verification_status"),
                 result.getString("from_state"),
                 result.getString("to_state"),
                 result.getString("reason"),
@@ -185,6 +187,7 @@ public class ExperimentProposalRepository {
       UUID proposalId,
       String action,
       String actor,
+      String actorVerificationStatus,
       String fromState,
       String toState,
       String reason,

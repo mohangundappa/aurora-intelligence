@@ -110,13 +110,12 @@ public class ExperimentationAgent {
     int derivedMinimum =
         (int) Math.ceil((standardError * standardError) / (expectedEffect * expectedEffect));
     int minimumExposures = Math.max((int) PLATFORM_MINIMUM_EXPOSURES, derivedMinimum);
-    long windowDays =
-        Math.max(
-            1,
-            ChronoUnit.DAYS.between(input.objective().startDate(), input.objective().endDate())
-                + 1);
-    double sessionsPerDay = observations.size() / (double) windowDays;
     LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    LocalDate elapsedEnd =
+        today.isBefore(input.objective().endDate()) ? today : input.objective().endDate();
+    long elapsedWindowDays =
+        Math.max(1, ChronoUnit.DAYS.between(input.objective().startDate(), elapsedEnd) + 1);
+    double sessionsPerDay = observations.size() / (double) elapsedWindowDays;
     long remainingDays =
         Math.max(0, ChronoUnit.DAYS.between(today, input.objective().endDate()) + 1);
     double projectedSessions = sessionsPerDay * remainingDays;
@@ -127,7 +126,7 @@ public class ExperimentationAgent {
           java.util.Map.of(
               "minimumExposuresPerVariant", minimumExposures,
               "observedSessions", observations.size(),
-              "windowDays", windowDays,
+              "elapsedWindowDays", elapsedWindowDays,
               "observedSessionsPerDay", sessionsPerDay,
               "remainingDays", remainingDays,
               "projectedSessions", projectedSessions));
@@ -140,7 +139,10 @@ public class ExperimentationAgent {
         withRate > withoutRate ? "higher" : withRate < withoutRate ? "lower" : "the same";
     String experimentId =
         humanReadableExperimentId(
-            input.objective().name(), signalName, input.objective().objectiveId());
+            input.objective().name(),
+            signalName,
+            input.objective().objectiveId(),
+            insight.insightId());
     String actionSlug = slug(input.objective().targetKpi());
     return AgentResult.success(
         new ExperimentProposal(
@@ -182,7 +184,9 @@ public class ExperimentationAgent {
                 + " using a conventional two-sided 5% significance level and 80% power, then floored at the platform minimum of 30 per arm. "
                 + "Feasibility projects the observed "
                 + formatRate(sessionsPerDay)
-                + " sessions per day across the objective window over the "
+                + " sessions per day across the elapsed "
+                + elapsedWindowDays
+                + "-day portion of the objective window over the "
                 + remainingDays
                 + " remaining days.",
             List.copyOf(evidence),
@@ -192,10 +196,11 @@ public class ExperimentationAgent {
   }
 
   private String humanReadableExperimentId(
-      String objectiveName, String signalName, String objectiveId) {
+      String objectiveName, String signalName, String objectiveId, UUID insightId) {
     String slug = slug(objectiveName + "-" + signalName);
     String suffix =
-        UUID.nameUUIDFromBytes((objectiveId + ":" + signalName).getBytes(StandardCharsets.UTF_8))
+        UUID.nameUUIDFromBytes(
+                (objectiveId + ":" + signalName + ":" + insightId).getBytes(StandardCharsets.UTF_8))
             .toString()
             .substring(0, 8);
     return slug + "-" + suffix;

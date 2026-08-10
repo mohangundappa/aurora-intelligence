@@ -56,7 +56,14 @@ class AgentToolRegistryTest {
             "activateExperiment",
             "activateExperimentProposal",
             "saveExperimentDefinition",
-            "writeExperimentDefinition");
+            "writeExperimentDefinition",
+            "createExperimentAnalysis",
+            "saveExperimentAnalysis",
+            "shipExperiment",
+            "stopExperiment",
+            "iterateExperiment",
+            "deployExperiment",
+            "retireExperiment");
   }
 
   @Test

@@ -18,7 +18,7 @@ scale, provider parity, or commercial lift.
 | Experiments | Hash assignment, exposure/outcome persistence, 30-subject guard | Statistical design service, warehouse, power analysis, SRM checks, privacy-safe reporting |
 | Cache | Redis TTL/cache with PostgreSQL fallback and event eviction | HA Redis, invalidation delivery guarantees, cache warming and tenant isolation |
 | Operations | SQL-derived metrics and health endpoints | Native broker lag, tracing, SLOs, alerting, incident/runbook integration |
-| Security | Local credentials and consent fields | SSO/RBAC, secrets manager, encryption, retention/deletion, masking and audit export |
+| Security | Local credentials and consent fields; governance actors are self-declared and unverified in this showcase | SSO/RBAC, secrets manager, encryption, retention/deletion, masking and audit export |
 
 ## CDP integration approach
 
@@ -56,3 +56,9 @@ policy approvals, model promotion gates, experiment review, schema compatibility
 checks, and audit retention. Integrate traces across event ID, correlation ID,
 decision ID and provider request ID. Define incident ownership across client IT,
 CDP partner/vendor, and the Aurora application team before production rollout.
+
+The local governance endpoints accept a caller-supplied actor for demonstration
+and record it as `SELF_DECLARED_UNVERIFIED`; this is attribution, not
+authentication or authorization. Production must authenticate and authorize
+approvals and other governance transitions with SSO/RBAC before relying on the
+approval gate.

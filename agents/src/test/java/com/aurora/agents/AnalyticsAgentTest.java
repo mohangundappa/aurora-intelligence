@@ -33,7 +33,13 @@ class AnalyticsAgentTest {
         .containsExactly(40, 32);
     assertThat(result.output().absoluteLift()).isNotNull();
     assertThat(result.output().reasoning())
-        .contains("Observed in this experiment", "two-sided 5%", "80% power");
+        .contains(
+            "Observed in this experiment",
+            "two-sided 5%",
+            "80% power",
+            "minimum detectable effect",
+            "no guardrail metrics were examined")
+        .doesNotContain("80% power planning assumption");
     assertThat(result.output().recommendation())
         .isIn(
             ExperimentAnalysis.Recommendation.SHIP,
@@ -103,7 +109,67 @@ class AnalyticsAgentTest {
     assertThat(result.output()).isNull();
   }
 
+  @Test
+  void refusesMultiArmExperimentInsteadOfDroppingAnArm() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    when(tools.invoke(
+            "getExperimentPerformance", new AgentToolInputs.Experiment("multi-arm"), EXECUTION_ID))
+        .thenReturn(
+            invocation(
+                "performance",
+                new ExperimentPerformance(
+                    "multi-arm",
+                    "Experiment",
+                    "Description",
+                    "BOOKING_COMPLETED",
+                    30,
+                    List.of(
+                        new ExperimentPerformance.Variant("arm-a", 40, 0, 0, 10, 0.25),
+                        new ExperimentPerformance.Variant("arm-b", 40, 0, 0, 12, 0.3),
+                        new ExperimentPerformance.Variant("arm-c", 40, 0, 0, 15, 0.375)),
+                    false,
+                    "")));
+    when(tools.invoke(
+            "getExperimentExposures", new AgentToolInputs.Experiment("multi-arm"), EXECUTION_ID))
+        .thenReturn(invocation("exposures", List.of()));
+    when(tools.invoke(
+            "getExperimentOutcomes", new AgentToolInputs.Experiment("multi-arm"), EXECUTION_ID))
+        .thenReturn(invocation("outcomes", List.of()));
+
+    AgentResult<ExperimentAnalysis> result =
+        new AnalyticsAgent(tools)
+            .analyze(new AnalyticsInput("objective", "multi-arm"), EXECUTION_ID, "corr");
+
+    assertThat(result.refusal()).extracting(AgentRefusal::code).isEqualTo("MULTI_ARM_UNSUPPORTED");
+    assertThat(result.refusal().reason()).contains("multiple-comparison handling");
+    assertThat(result.output()).isNull();
+  }
+
+  @Test
+  void namesBaselineWhenNeitherArmUsesControlOrTreatment() {
+    AgentToolRegistry tools = mock(AgentToolRegistry.class);
+    stubEvidence(tools, 40, 32, "baseline-arm", "variant-arm");
+
+    AgentResult<ExperimentAnalysis> result =
+        new AnalyticsAgent(tools)
+            .analyze(
+                new AnalyticsInput("objective", "destination-experience-v1"), EXECUTION_ID, "corr");
+
+    assertThat(result.refusal()).isNull();
+    assertThat(result.output().reasoning())
+        .contains("No arm was named 'control', so the first declared arm baseline-arm");
+  }
+
   private void stubEvidence(AgentToolRegistry tools, int controlExposures, int treatmentExposures) {
+    stubEvidence(tools, controlExposures, treatmentExposures, "control", "treatment");
+  }
+
+  private void stubEvidence(
+      AgentToolRegistry tools,
+      int controlExposures,
+      int treatmentExposures,
+      String controlName,
+      String treatmentName) {
     String experimentId = "destination-experience-v1";
     when(tools.invoke(
             "getExperimentPerformance", new AgentToolInputs.Experiment(experimentId), EXECUTION_ID))
@@ -118,9 +184,9 @@ class AnalyticsAgentTest {
                     30,
                     List.of(
                         new ExperimentPerformance.Variant(
-                            "control", controlExposures, 0, 0, 10, 0.25),
+                            controlName, controlExposures, 0, 0, 10, 0.25),
                         new ExperimentPerformance.Variant(
-                            "treatment", treatmentExposures, 0, 0, 20, 0.5)),
+                            treatmentName, treatmentExposures, 0, 0, 20, 0.5)),
                     false,
                     "")));
     List<ExperimentService.Exposure> exposures =
@@ -130,7 +196,7 @@ class AnalyticsAgentTest {
                         index ->
                             new ExperimentService.Exposure(
                                 experimentId,
-                                "control",
+                                controlName,
                                 "subject-c" + index,
                                 "session-c" + index,
                                 "corr-c" + index,
@@ -140,7 +206,7 @@ class AnalyticsAgentTest {
                         index ->
                             new ExperimentService.Exposure(
                                 experimentId,
-                                "treatment",
+                                treatmentName,
                                 "subject-t" + index,
                                 "session-t" + index,
                                 "corr-t" + index,

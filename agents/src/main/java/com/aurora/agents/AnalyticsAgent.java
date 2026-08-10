@@ -17,6 +17,7 @@ import java.util.UUID;
 public class AnalyticsAgent {
   private static final int PLATFORM_MINIMUM_EXPOSURES = 30;
   private static final double TWO_SIDED_ALPHA_Z = 1.96;
+  private static final double EIGHTY_PERCENT_POWER_Z = 0.84;
 
   private final AgentToolRegistry tools;
 
@@ -46,6 +47,15 @@ public class AnalyticsAgent {
             executionId);
     List<ExperimentService.Outcome> outcomes =
         outcomesCall.resultAsList(ExperimentService.Outcome.class);
+
+    if (performance.variants().size() > 2) {
+      return refusal(
+          "MULTI_ARM_UNSUPPORTED",
+          "This analysis supports two-arm comparisons only; multi-arm analysis requires multiple-comparison handling that is not implemented",
+          performanceCall,
+          exposuresCall,
+          outcomesCall);
+    }
 
     int minimumExposures =
         Math.max(PLATFORM_MINIMUM_EXPOSURES, performance.minimumExposuresPerVariant());
@@ -105,6 +115,13 @@ public class AnalyticsAgent {
 
     ExperimentAnalysis.VariantResult control = control(variants);
     ExperimentAnalysis.VariantResult treatment = treatment(variants, control);
+    boolean namedControl = control.variant().toLowerCase().contains("control");
+    String baselineReason =
+        namedControl
+            ? "The baseline arm was selected because its declared name contains 'control'."
+            : "No arm was named 'control', so the first declared arm "
+                + control.variant()
+                + " was selected as the baseline.";
     double absoluteLift = treatment.conversionRate() - control.conversionRate();
     if (control.conversionRate() == 0d && absoluteLift != 0d) {
       return refusal(
@@ -122,6 +139,12 @@ public class AnalyticsAgent {
     double standardError =
         Math.sqrt(pooled * (1d - pooled) * (1d / treatment.exposures() + 1d / control.exposures()));
     double zScore = standardError == 0d ? 0d : Math.abs(absoluteLift) / standardError;
+    double minimumDetectableEffect =
+        (TWO_SIDED_ALPHA_Z + EIGHTY_PERCENT_POWER_Z)
+            * Math.sqrt(
+                control.conversionRate()
+                    * (1d - control.conversionRate())
+                    * (1d / treatment.exposures() + 1d / control.exposures()));
     boolean significant = zScore >= TWO_SIDED_ALPHA_Z;
     ExperimentAnalysis.Recommendation recommendation =
         significant
@@ -146,12 +169,17 @@ public class AnalyticsAgent {
             + formatPercent(relativeLift)
             + ". Both arms met the "
             + minimumExposures
-            + "-exposure guard. The comparison uses a two-sided 5% significance threshold and an 80% power planning assumption; the observed z-score was "
+            + "-exposure guard. "
+            + baselineReason
+            + " The comparison uses a two-sided 5% significance threshold; the observed z-score was "
             + formatDecimal(zScore)
-            + ". "
+            + ". Based on the baseline rate and the exposures actually observed in both arms, the approximate minimum detectable effect at 80% power is "
+            + formatPercent(minimumDetectableEffect)
+            + " (percentage points). "
             + (significant
-                ? "This randomized comparison supports a directional conclusion within those assumptions."
+                ? "This randomized comparison supports a directional conclusion at that significance threshold."
                 : "The observed difference did not meet the significance threshold, so the result does not support a directional conclusion yet.")
+            + " This analysis evaluates only the primary outcome; no guardrail metrics were examined, so the recommendation does not establish guardrail safety."
             + " Recommendation: "
             + recommendation
             + ".";

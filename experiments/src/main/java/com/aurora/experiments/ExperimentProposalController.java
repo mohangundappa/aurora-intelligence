@@ -1,5 +1,6 @@
 package com.aurora.experiments;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -75,21 +76,19 @@ public class ExperimentProposalController {
   @ExceptionHandler(MarTechActivationException.class)
   @ResponseStatus(HttpStatus.BAD_GATEWAY)
   public Map<String, String> providerFailure(MarTechActivationException exception) {
-    return Map.of(
-        "error",
-        exception.getMessage(),
-        "operation",
-        exception.operation(),
-        "destination",
-        exception.result().destinationId(),
-        "status",
-        exception.result().status().name(),
-        "acceptedCount",
-        Integer.toString(exception.result().acceptedCount()),
-        "rejectedCount",
-        Integer.toString(exception.result().rejectedCount()),
-        "providerReason",
-        exception.result().reason());
+    Map<String, String> response = new LinkedHashMap<>();
+    response.put("error", "Marketing platform activation was not accepted.");
+    response.put("operation", exception.operation());
+    response.put("destination", exception.result().destinationId());
+    response.put("status", exception.result().status().name());
+    response.put("acceptedCount", Integer.toString(exception.result().acceptedCount()));
+    response.put("rejectedCount", Integer.toString(exception.result().rejectedCount()));
+    response.put(
+        "activationAttemptId",
+        exception.activationAttemptId() == null
+            ? "not-recorded"
+            : exception.activationAttemptId().toString());
+    return response;
   }
 
   public record TransitionRequest(String actor, String reason) {}

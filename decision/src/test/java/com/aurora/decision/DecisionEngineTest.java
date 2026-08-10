@@ -102,6 +102,46 @@ class DecisionEngineTest {
   }
 
   @Test
+  void nullDeliveryResultDegradesToAUsableDecision() {
+    Decision decision = personalizedDecision(request -> null);
+
+    assertThat(decision.experience()).isNotBlank();
+    assertThat(decision.reasonCodes()).contains("MARTECH_ACTIVATION_FAILED");
+  }
+
+  @Test
+  void deliveryIdempotencyIsStablePerSessionButNotGlobal() {
+    java.util.List<String> keys = new java.util.ArrayList<>();
+    java.util.Map<String, ActivationResult> results = new java.util.HashMap<>();
+    OfferDelivery delivery =
+        request -> {
+          keys.add(request.idempotencyKey());
+          return results.computeIfAbsent(
+              request.idempotencyKey(),
+              key ->
+                  new ActivationResult(
+                      request.destinationId(),
+                      key,
+                      ActivationResult.Status.ACCEPTED,
+                      1,
+                      0,
+                      null,
+                      Map.of()));
+        };
+    CdpProfile profile = profileWithConsent();
+    DecisionEngine engine = new DecisionEngine(new DecisionPolicy(), null, null, delivery);
+
+    engine.decide("session", profile, List.of(), true, "first-correlation");
+    engine.decide("session", profile, List.of(), true, "second-correlation");
+    engine.decide("other-session", profile, List.of(), true, "third-correlation");
+
+    assertThat(keys).hasSize(3);
+    assertThat(keys.get(0)).isEqualTo(keys.get(1));
+    assertThat(keys.get(2)).isNotEqualTo(keys.get(0));
+    assertThat(results).hasSize(2);
+  }
+
+  @Test
   void hangingDeliveryIsBoundedAndDegradesToAUsableDecision() {
     OfferDelivery delivery =
         request -> {
@@ -157,17 +197,20 @@ class DecisionEngineTest {
   }
 
   private Decision personalizedDecision(OfferDelivery delivery) {
-    CdpProfile profile =
-        new CdpProfile(
-            "anon",
-            null,
-            new CdpProfile.Identity("anon", null, false),
-            new CdpProfile.Loyalty("Guest", 0, false),
-            new CdpProfile.ConsentState(true, true),
-            Map.of(),
-            Set.of(),
-            List.of());
+    CdpProfile profile = profileWithConsent();
     return new DecisionEngine(new DecisionPolicy(), null, null, delivery)
         .decide("session", profile, List.of(), true, UUID.randomUUID().toString());
+  }
+
+  private CdpProfile profileWithConsent() {
+    return new CdpProfile(
+        "anon",
+        null,
+        new CdpProfile.Identity("anon", null, false),
+        new CdpProfile.Loyalty("Guest", 0, false),
+        new CdpProfile.ConsentState(true, true),
+        Map.of(),
+        Set.of(),
+        List.of());
   }
 }

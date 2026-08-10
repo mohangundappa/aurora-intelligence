@@ -398,6 +398,110 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.workforce-objective {
+  margin-bottom: 1.5rem;
+}
+
+.workforce-objective-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.workforce-objective-heading code {
+  color: #b7f0e2;
+  font-size: 0.78rem;
+}
+
+.workforce-stage {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid #ffffff22;
+  border-radius: 0.75rem;
+  color: #b7f0e2;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workforce-section {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #ffffff1c;
+}
+
+.detail-card,
+.execution-card,
+.analysis-card {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #ffffff1c;
+  border-radius: 0.75rem;
+  background: #ffffff08;
+}
+
+.execution-card.refusal {
+  border-color: #e2b35a;
+}
+
+.refusal-copy {
+  color: #f7d995;
+}
+
+.audit-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 2fr;
+  gap: 0.35rem 1rem;
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  border-left: 3px solid #b7f0e2;
+  background: #ffffff08;
+}
+
+.audit-row small {
+  grid-column: 1 / -1;
+  color: #b6c5d0;
+}
+
+.evidence,
+.tool-call {
+  margin-top: 0.75rem;
+}
+
+.evidence summary,
+.tool-call summary,
+details > summary {
+  cursor: pointer;
+  color: #b7f0e2;
+}
+
+.json-block {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.75rem;
+  color: #d8e5e8;
+  background: #07101f;
+  border-radius: 0.5rem;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+.variant-list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+  color: #c4d2d8;
+}
+
+.empty-state {
+  color: #b6c5d0;
+  font-style: italic;
+}
+
 .event-row,
 .signal-row {
   display: flex;
@@ -458,6 +562,20 @@ h2 {
   .results-heading,
   .section-heading {
     display: grid;
+  }
+
+  .workforce-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .workforce-objective-heading,
+  .audit-row {
+    display: block;
+  }
+
+  .audit-row > * {
+    display: block;
+    margin-top: 0.3rem;
   }
 }
 .grid {

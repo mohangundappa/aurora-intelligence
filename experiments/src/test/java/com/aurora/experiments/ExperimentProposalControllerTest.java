@@ -111,6 +111,36 @@ class ExperimentProposalControllerTest {
         .andExpect(jsonPath("$.destination").value("booking-destination"))
         .andExpect(jsonPath("$.status").value("REJECTED"))
         .andExpect(jsonPath("$.rejectedCount").value("1"))
-        .andExpect(jsonPath("$.providerReason").value("rate limited"));
+        .andExpect(jsonPath("$.activationAttemptId").value("not-recorded"))
+        .andExpect(jsonPath("$.providerReason").doesNotExist());
+  }
+
+  @Test
+  void partialWithoutReasonReturnsBadGatewayWithoutThrowing() throws Exception {
+    UUID proposalId = UUID.randomUUID();
+    ActivationResult result =
+        new ActivationResult(
+            "booking-destination",
+            "key",
+            ActivationResult.Status.PARTIAL,
+            2,
+            1,
+            null,
+            java.util.Map.of("provider", "test"));
+    when(service.activate(proposalId, "operator", "activate"))
+        .thenThrow(new MarTechActivationException("campaign", result));
+
+    mvc.perform(
+            post("/api/experiment-proposals/" + proposalId + "/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"actor\":\"operator\",\"reason\":\"activate\"}"))
+        .andExpect(status().isBadGateway())
+        .andExpect(jsonPath("$.operation").value("campaign"))
+        .andExpect(jsonPath("$.destination").value("booking-destination"))
+        .andExpect(jsonPath("$.status").value("PARTIAL"))
+        .andExpect(jsonPath("$.acceptedCount").value("2"))
+        .andExpect(jsonPath("$.rejectedCount").value("1"))
+        .andExpect(jsonPath("$.activationAttemptId").value("not-recorded"))
+        .andExpect(jsonPath("$.providerReason").doesNotExist());
   }
 }

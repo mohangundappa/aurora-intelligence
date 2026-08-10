@@ -76,9 +76,12 @@ public class DecisionEngine {
     Decision decision = preview(sessionId, profile, signals, personalizationConsent, correlationId);
     if (personalizationConsent && profile.consent().personalization()) {
       ActivationRequest request =
-          new ActivationRequest(decision.channel(), decisionPayload(decision), correlationId);
+          new ActivationRequest(
+              decision.channel(),
+              decisionPayload(decision),
+              deliveryIdempotencyKey(sessionId, decision));
       ActivationResult activation =
-          delivery == null ? unconfiguredActivation(decision) : deliverBounded(request);
+          delivery == null ? unconfiguredActivation(request) : deliverBounded(request);
       recordDeliveryAttempt(sessionId, request, activation);
       decision = withActivationResult(decision, activation);
     }
@@ -155,7 +158,10 @@ public class DecisionEngine {
   private ActivationResult deliverBounded(ActivationRequest request) {
     Future<ActivationResult> future = DELIVERY_EXECUTOR.submit(() -> delivery.deliver(request));
     try {
-      return future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      ActivationResult result = future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      return result == null
+          ? failedActivation(request, "marketing platform delivery returned no result")
+          : result;
     } catch (TimeoutException exception) {
       future.cancel(true);
       return failedActivation(request, "marketing platform delivery timed out");
@@ -169,6 +175,17 @@ public class DecisionEngine {
               : "marketing platform delivery failed: " + exception.getCause().getMessage();
       return failedActivation(request, reason);
     }
+  }
+
+  private String deliveryIdempotencyKey(String sessionId, Decision decision) {
+    return "offer:"
+        + sessionId
+        + ":"
+        + decision.action()
+        + ":"
+        + decision.experience()
+        + ":"
+        + (decision.experimentId() == null ? "none" : decision.experimentId());
   }
 
   private void recordDeliveryAttempt(
@@ -185,10 +202,10 @@ public class DecisionEngine {
     }
   }
 
-  private ActivationResult unconfiguredActivation(Decision decision) {
+  private ActivationResult unconfiguredActivation(ActivationRequest request) {
     return new ActivationResult(
-        decision.channel(),
-        decision.correlationId(),
+        request.destinationId(),
+        request.idempotencyKey(),
         ActivationResult.Status.UNCONFIGURED,
         0,
         0,

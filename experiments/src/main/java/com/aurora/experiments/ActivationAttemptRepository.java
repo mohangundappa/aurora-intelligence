@@ -90,6 +90,16 @@ public class ActivationAttemptRepository {
         contextId);
   }
 
+  public List<ActivationAttempt> findAll() {
+    return jdbc.query(
+        """
+        select attempt_id,proposal_id,operation,destination_id,payload,idempotency_key,
+               context_id,status,accepted_count,rejected_count,reason,provider_metadata,attempted_at
+        from martech_activation_attempts order by attempted_at desc, attempt_id
+        """,
+        this::mapAttempt);
+  }
+
   private ActivationAttempt mapAttempt(java.sql.ResultSet result, int row) {
     try {
       return new ActivationAttempt(

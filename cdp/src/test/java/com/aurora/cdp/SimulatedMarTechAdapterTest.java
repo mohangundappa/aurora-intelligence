@@ -47,4 +47,14 @@ class SimulatedMarTechAdapterTest {
     assertThat(partial.acceptedCount()).isEqualTo(2);
     assertThat(partial.rejectedCount()).isEqualTo(3);
   }
+
+  @Test
+  void idempotencyRetentionIsBounded() {
+    for (int index = 0; index < 1_100; index++) {
+      adapter.deliver(
+          new ActivationRequest("offer-destination", Map.of("requestedCount", 1), "key-" + index));
+    }
+
+    assertThat(adapter.retainedResultCount()).isLessThanOrEqualTo(1_024);
+  }
 }

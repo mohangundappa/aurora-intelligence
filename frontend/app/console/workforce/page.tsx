@@ -245,6 +245,29 @@ export default function WorkforcePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const orderedObjectives = view
+    ? [...view.objectives].sort((left, right) => {
+        const completeness = (item: ObjectiveView) => {
+          if (
+            item.proposals.some(
+              (proposal) =>
+                proposal.analyses.length > 0 ||
+                proposal.activationAttempts.length > 0,
+            )
+          ) {
+            return 0;
+          }
+          if (item.proposals.length > 0) return 1;
+          if (item.insights.length > 0) return 2;
+          return 3;
+        };
+        return (
+          completeness(left) - completeness(right) ||
+          left.objective.name.localeCompare(right.objective.name)
+        );
+      })
+    : [];
+
   return (
     <main className="console">
       <div className="shell console-shell">
@@ -289,34 +312,7 @@ export default function WorkforcePage() {
             </EmptyState>
           </section>
         )}
-        {view && view.activationAttempts.length > 0 && (
-          <section className="console-card console-wide workforce-section">
-            <h2>Provider activation attempts</h2>
-            <p className="muted">
-              Durable hand-off evidence, including offer delivery attempts that
-              are not tied to an experiment proposal.
-            </p>
-            {view.activationAttempts.map((attempt) => (
-              <div
-                className="audit-row"
-                key={`${attempt.attemptedAt}-${attempt.destinationId}`}
-              >
-                <strong>
-                  {attempt.operation} · {attempt.destinationId}
-                </strong>
-                <span className="pill">{attempt.status}</span>
-                <small>
-                  {attempt.acceptedCount} accepted · {attempt.rejectedCount}{" "}
-                  rejected
-                  {attempt.reason ? ` · ${attempt.reason}` : ""}
-                  {attempt.contextId ? ` · context ${attempt.contextId}` : ""}
-                </small>
-                <code>{JSON.stringify(attempt.providerMetadata)}</code>
-              </div>
-            ))}
-          </section>
-        )}
-        {view?.objectives.map((item) => (
+        {orderedObjectives.map((item) => (
           <section
             className="console-card console-wide workforce-objective"
             key={item.objective.objectiveId}
@@ -531,6 +527,43 @@ export default function WorkforcePage() {
             </section>
           </section>
         ))}
+        {view && view.activationAttempts.length > 0 && (
+          <section className="console-card console-wide workforce-section">
+            <details>
+              <summary>
+                Provider activation attempts ({view.activationAttempts.length})
+              </summary>
+              <p className="muted">
+                Secondary durable hand-off evidence, including offer delivery
+                attempts that are not tied to an experiment proposal.
+              </p>
+              {view.activationAttempts.slice(0, 20).map((attempt) => (
+                <div
+                  className="audit-row"
+                  key={`${attempt.attemptedAt}-${attempt.destinationId}-${attempt.contextId ?? ""}`}
+                >
+                  <strong>
+                    {attempt.operation} · {attempt.destinationId}
+                  </strong>
+                  <span className="pill">{attempt.status}</span>
+                  <small>
+                    {attempt.acceptedCount} accepted · {attempt.rejectedCount}{" "}
+                    rejected
+                    {attempt.reason ? ` · ${attempt.reason}` : ""}
+                    {attempt.contextId ? ` · context ${attempt.contextId}` : ""}
+                  </small>
+                  <code>{JSON.stringify(attempt.providerMetadata)}</code>
+                </div>
+              ))}
+              {view.activationAttempts.length > 20 && (
+                <p className="muted">
+                  Showing the first 20 of {view.activationAttempts.length}{" "}
+                  attempts.
+                </p>
+              )}
+            </details>
+          </section>
+        )}
       </div>
     </main>
   );

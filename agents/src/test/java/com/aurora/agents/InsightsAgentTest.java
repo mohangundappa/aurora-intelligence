@@ -48,7 +48,11 @@ class InsightsAgentTest {
     assertThat(insight).isNotNull();
     assertThat(insight.finding())
         .contains(
-            "observed data", "higher", "100.0%", "0.0%", "association", "tested by an experiment");
+            "observed data",
+            "higher",
+            "comparative rates are withheld",
+            "association",
+            "tested by an experiment");
     assertThat(insight.metrics())
         .containsEntry("signalName", "weekend-getaway-affinity")
         .containsEntry("targetKpi", "BOOKING_COMPLETED")
@@ -56,7 +60,10 @@ class InsightsAgentTest {
         .containsEntry("sessionsWithSignal", 1)
         .containsEntry("sessionsWithoutSignal", 1)
         .containsEntry("conversionsWithSignal", 1L)
-        .containsEntry("conversionsWithoutSignal", 0L);
+        .containsEntry("conversionsWithoutSignal", 0L)
+        .containsEntry("comparisonRatesWithheld", true)
+        .doesNotContainKeys(
+            "conversionRateWithSignal", "conversionRateWithoutSignal", "conversionRateDifference");
     assertThat(insight.evidenceRefs())
         .containsExactly("result:sessions", "result:signals", "result:calculation");
     assertThat(insight.correlationId()).isEqualTo("correlation-1");
@@ -80,8 +87,7 @@ class InsightsAgentTest {
 
     assertThat(first.finding()).contains("higher", "association", "tested by an experiment");
     assertThat(second.finding()).contains("lower", "association", "tested by an experiment");
-    assertThat(first.metrics().get("conversionRateDifference"))
-        .isNotEqualTo(second.metrics().get("conversionRateDifference"));
+    assertThat(first.finding()).isNotEqualTo(second.finding());
   }
 
   @Test

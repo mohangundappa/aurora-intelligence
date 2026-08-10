@@ -127,6 +127,10 @@ public class ExperimentRegistry {
           "Cannot write experiment definition while database experiment definitions are unavailable; retry after the database recovers");
     }
     if (definitions.containsKey(id)) {
+      if (repository != null && !repository.existsById(id)) {
+        refresh();
+        if (!definitions.containsKey(id)) return;
+      }
       throw new IllegalStateException(
           "Experiment definition id '" + id + "' is already registered");
     }

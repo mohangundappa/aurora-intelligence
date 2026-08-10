@@ -12,6 +12,7 @@ export default function LifecyclePage() {
   const [models, setModels] = useState<Model[]>([]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   async function refresh() {
     const [nextModels, nextSignals] = await Promise.all([
@@ -24,8 +25,10 @@ export default function LifecyclePage() {
 
   async function transition(path: string) {
     setError("");
+    setSuccess("");
     try {
       await postApi(path);
+      setSuccess("Lifecycle transition completed and was recorded.");
       await refresh();
     } catch (exception) {
       setError(
@@ -65,6 +68,11 @@ export default function LifecyclePage() {
         {error && (
           <p className="console-error" role="alert">
             {error}
+          </p>
+        )}
+        {success && (
+          <p className="console-success" role="status">
+            {success}
           </p>
         )}
         <div className="console-grid">

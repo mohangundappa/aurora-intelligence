@@ -139,10 +139,7 @@ public class ExperimentationAgent {
         withRate > withoutRate ? "higher" : withRate < withoutRate ? "lower" : "the same";
     String experimentId =
         humanReadableExperimentId(
-            input.objective().name(),
-            signalName,
-            input.objective().objectiveId(),
-            insight.insightId());
+            input.objective().name(), signalName, input.objective().objectiveId());
     String actionSlug = slug(input.objective().targetKpi());
     return AgentResult.success(
         new ExperimentProposal(
@@ -196,11 +193,10 @@ public class ExperimentationAgent {
   }
 
   private String humanReadableExperimentId(
-      String objectiveName, String signalName, String objectiveId, UUID insightId) {
+      String objectiveName, String signalName, String objectiveId) {
     String slug = slug(objectiveName + "-" + signalName);
     String suffix =
-        UUID.nameUUIDFromBytes(
-                (objectiveId + ":" + signalName + ":" + insightId).getBytes(StandardCharsets.UTF_8))
+        UUID.nameUUIDFromBytes((objectiveId + ":" + signalName).getBytes(StandardCharsets.UTF_8))
             .toString()
             .substring(0, 8);
     return slug + "-" + suffix;

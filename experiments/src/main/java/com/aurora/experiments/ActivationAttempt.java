@@ -9,6 +9,7 @@ import java.util.UUID;
 public record ActivationAttempt(
     UUID attemptId,
     UUID proposalId,
+    String contextId,
     String operation,
     String destinationId,
     Map<String, Object> payload,
@@ -21,7 +22,9 @@ public record ActivationAttempt(
     Instant attemptedAt) {
   public ActivationAttempt {
     if (attemptId == null) throw new IllegalArgumentException("attemptId is required");
-    if (proposalId == null) throw new IllegalArgumentException("proposalId is required");
+    if (proposalId == null && (contextId == null || contextId.isBlank())) {
+      throw new IllegalArgumentException("proposalId or contextId is required");
+    }
     if (operation == null || operation.isBlank()) {
       throw new IllegalArgumentException("operation is required");
     }
@@ -46,6 +49,25 @@ public record ActivationAttempt(
     return new ActivationAttempt(
         UUID.randomUUID(),
         proposalId,
+        null,
+        operation,
+        request.destinationId(),
+        request.payload(),
+        request.idempotencyKey(),
+        result.status(),
+        result.acceptedCount(),
+        result.rejectedCount(),
+        result.reason(),
+        result.providerMetadata(),
+        Instant.now());
+  }
+
+  public static ActivationAttempt fromContext(
+      String contextId, String operation, ActivationRequest request, ActivationResult result) {
+    return new ActivationAttempt(
+        UUID.randomUUID(),
+        null,
+        contextId,
         operation,
         request.destinationId(),
         request.payload(),

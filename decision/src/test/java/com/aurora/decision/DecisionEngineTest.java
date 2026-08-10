@@ -6,6 +6,8 @@ import com.aurora.common.CdpProfile;
 import com.aurora.common.Decision;
 import com.aurora.common.martech.ActivationResult;
 import com.aurora.common.martech.OfferDelivery;
+import com.aurora.experiments.ActivationAttempt;
+import com.aurora.experiments.ActivationAttemptRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,7 +85,7 @@ class DecisionEngineTest {
             .decide("session", profile, List.of(), true, "correlation");
 
     assertThat(decision.reasonCodes()).contains("MARTECH_ACTIVATION_REJECTED");
-    assertThat(decision.explanation()).contains("provider rate limit");
+    assertThat(decision.explanation()).doesNotContain("provider rate limit");
   }
 
   @Test
@@ -96,7 +98,7 @@ class DecisionEngineTest {
 
     assertThat(decision.experience()).isNotBlank();
     assertThat(decision.reasonCodes()).contains("MARTECH_ACTIVATION_FAILED");
-    assertThat(decision.explanation()).contains("provider unavailable");
+    assertThat(decision.explanation()).doesNotContain("provider unavailable");
   }
 
   @Test
@@ -117,7 +119,41 @@ class DecisionEngineTest {
     assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000);
     assertThat(decision.experience()).isNotBlank();
     assertThat(decision.reasonCodes()).contains("MARTECH_ACTIVATION_FAILED");
-    assertThat(decision.explanation()).contains("timed out");
+    assertThat(decision.explanation()).doesNotContain("timed out");
+  }
+
+  @Test
+  void deliveryFailureIsDurablyAuditedWithoutLeakingProviderMessage() {
+    OfferDelivery delivery =
+        request -> {
+          throw new IllegalStateException("vendor host and stack detail");
+        };
+    ActivationAttemptRepository attempts =
+        org.mockito.Mockito.mock(ActivationAttemptRepository.class);
+    CdpProfile profile =
+        new CdpProfile(
+            "anon",
+            null,
+            new CdpProfile.Identity("anon", null, false),
+            new CdpProfile.Loyalty("Guest", 0, false),
+            new CdpProfile.ConsentState(true, true),
+            Map.of(),
+            Set.of(),
+            List.of());
+
+    Decision decision =
+        new DecisionEngine(new DecisionPolicy(), null, null, delivery, attempts)
+            .decide("session", profile, List.of(), true, "correlation");
+
+    assertThat(decision.explanation()).doesNotContain("vendor host and stack detail");
+    org.mockito.Mockito.verify(attempts)
+        .save(org.mockito.ArgumentMatchers.any(ActivationAttempt.class));
+    org.mockito.ArgumentCaptor<ActivationAttempt> captor =
+        org.mockito.ArgumentCaptor.forClass(ActivationAttempt.class);
+    org.mockito.Mockito.verify(attempts).save(captor.capture());
+    assertThat(captor.getValue().contextId()).isEqualTo("decision:session");
+    assertThat(captor.getValue().operation()).isEqualTo("OFFER_DELIVERY");
+    assertThat(captor.getValue().reason()).contains("vendor host and stack detail");
   }
 
   private Decision personalizedDecision(OfferDelivery delivery) {

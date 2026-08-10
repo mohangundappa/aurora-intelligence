@@ -6,6 +6,8 @@ import com.aurora.common.SignalSnapshot;
 import com.aurora.common.martech.ActivationRequest;
 import com.aurora.common.martech.ActivationResult;
 import com.aurora.common.martech.OfferDelivery;
+import com.aurora.experiments.ActivationAttempt;
+import com.aurora.experiments.ActivationAttemptRepository;
 import com.aurora.experiments.ExperimentService;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,14 +31,23 @@ public class DecisionEngine {
   private final DecisionRepository repository;
   private final ExperimentService experiments;
   private final OfferDelivery delivery;
+  private final ActivationAttemptRepository activationAttempts;
 
   public DecisionEngine(DecisionPolicy policy) {
-    this(policy, null, null, null);
+    this(policy, null, null, null, null);
   }
 
   public DecisionEngine(
       DecisionPolicy policy, DecisionRepository repository, ExperimentService experiments) {
-    this(policy, repository, experiments, null);
+    this(policy, repository, experiments, null, null);
+  }
+
+  public DecisionEngine(
+      DecisionPolicy policy,
+      DecisionRepository repository,
+      ExperimentService experiments,
+      OfferDelivery delivery) {
+    this(policy, repository, experiments, delivery, null);
   }
 
   @Autowired
@@ -44,11 +55,13 @@ public class DecisionEngine {
       DecisionPolicy policy,
       DecisionRepository repository,
       ExperimentService experiments,
-      OfferDelivery delivery) {
+      OfferDelivery delivery,
+      ActivationAttemptRepository activationAttempts) {
     this.policy = policy;
     this.repository = repository;
     this.experiments = experiments;
     this.delivery = delivery;
+    this.activationAttempts = activationAttempts;
   }
 
   public Decision decide(
@@ -59,13 +72,11 @@ public class DecisionEngine {
       String correlationId) {
     Decision decision = preview(sessionId, profile, signals, personalizationConsent, correlationId);
     if (personalizationConsent && profile.consent().personalization()) {
+      ActivationRequest request =
+          new ActivationRequest(decision.channel(), decisionPayload(decision), correlationId);
       ActivationResult activation =
-          delivery == null
-              ? unconfiguredActivation(decision)
-              : deliverBounded(
-                  decision,
-                  new ActivationRequest(
-                      decision.channel(), decisionPayload(decision), correlationId));
+          delivery == null ? unconfiguredActivation(decision) : deliverBounded(request);
+      recordDeliveryAttempt(sessionId, request, activation);
       decision = withActivationResult(decision, activation);
     }
     persist(decision, profile, signals);
@@ -126,10 +137,6 @@ public class DecisionEngine {
     String statusCode = "MARTECH_ACTIVATION_" + activation.status();
     List<String> reasonCodes =
         Stream.concat(decision.reasonCodes().stream(), Stream.of(statusCode)).toList();
-    String explanation =
-        activation.reason() == null
-            ? decision.explanation()
-            : decision.explanation() + " Marketing platform response: " + activation.reason();
     return new Decision(
         decision.action(),
         decision.experience(),
@@ -137,12 +144,12 @@ public class DecisionEngine {
         reasonCodes,
         decision.decisionVersion(),
         decision.experimentId(),
-        explanation,
+        decision.explanation(),
         decision.sessionId(),
         decision.correlationId());
   }
 
-  private ActivationResult deliverBounded(Decision decision, ActivationRequest request) {
+  private ActivationResult deliverBounded(ActivationRequest request) {
     Future<ActivationResult> future = DELIVERY_EXECUTOR.submit(() -> delivery.deliver(request));
     try {
       return future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
@@ -158,6 +165,18 @@ public class DecisionEngine {
               ? "marketing platform delivery failed"
               : "marketing platform delivery failed: " + exception.getCause().getMessage();
       return failedActivation(request, reason);
+    }
+  }
+
+  private void recordDeliveryAttempt(
+      String contextId, ActivationRequest request, ActivationResult result) {
+    if (activationAttempts == null) return;
+    try {
+      activationAttempts.save(
+          ActivationAttempt.fromContext(
+              "decision:" + contextId, "OFFER_DELIVERY", request, result));
+    } catch (RuntimeException ignored) {
+      // A diagnostic write must never turn a customer decision into an error.
     }
   }
 

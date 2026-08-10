@@ -27,12 +27,13 @@ public class ActivationAttemptRepository {
       jdbc.update(
           """
           insert into martech_activation_attempts
-            (attempt_id,proposal_id,operation,destination_id,payload,idempotency_key,
+            (attempt_id,proposal_id,context_id,operation,destination_id,payload,idempotency_key,
              status,accepted_count,rejected_count,reason,provider_metadata,attempted_at)
-          values (?,?,?,?,?::jsonb,?,?,?,?,?,?::jsonb,?)
+          values (?,?,?,?,?,?::jsonb,?,?,?,?,?,?::jsonb,?)
           """,
           attempt.attemptId(),
           attempt.proposalId(),
+          attempt.contextId(),
           attempt.operation(),
           attempt.destinationId(),
           mapper.writeValueAsString(attempt.payload()),
@@ -52,7 +53,7 @@ public class ActivationAttemptRepository {
     return jdbc.query(
         """
         select attempt_id,proposal_id,operation,destination_id,payload,idempotency_key,
-               status,accepted_count,rejected_count,reason,provider_metadata,attempted_at
+               context_id,status,accepted_count,rejected_count,reason,provider_metadata,attempted_at
         from martech_activation_attempts where proposal_id = ? order by attempted_at, attempt_id
         """,
         (result, row) -> {
@@ -60,6 +61,7 @@ public class ActivationAttemptRepository {
             return new ActivationAttempt(
                 result.getObject("attempt_id", UUID.class),
                 result.getObject("proposal_id", UUID.class),
+                result.getString("context_id"),
                 result.getString("operation"),
                 result.getString("destination_id"),
                 mapper.readValue(result.getString("payload"), Map.class),
@@ -75,5 +77,37 @@ public class ActivationAttemptRepository {
           }
         },
         proposalId);
+  }
+
+  public List<ActivationAttempt> findByContextId(String contextId) {
+    return jdbc.query(
+        """
+        select attempt_id,proposal_id,operation,destination_id,payload,idempotency_key,
+               context_id,status,accepted_count,rejected_count,reason,provider_metadata,attempted_at
+        from martech_activation_attempts where context_id = ? order by attempted_at, attempt_id
+        """,
+        this::mapAttempt,
+        contextId);
+  }
+
+  private ActivationAttempt mapAttempt(java.sql.ResultSet result, int row) {
+    try {
+      return new ActivationAttempt(
+          result.getObject("attempt_id", UUID.class),
+          result.getObject("proposal_id", UUID.class),
+          result.getString("context_id"),
+          result.getString("operation"),
+          result.getString("destination_id"),
+          mapper.readValue(result.getString("payload"), Map.class),
+          result.getString("idempotency_key"),
+          ActivationResult.Status.valueOf(result.getString("status")),
+          result.getInt("accepted_count"),
+          result.getInt("rejected_count"),
+          result.getString("reason"),
+          mapper.readValue(result.getString("provider_metadata"), Map.class),
+          result.getTimestamp("attempted_at").toInstant());
+    } catch (Exception exception) {
+      throw new IllegalStateException("Unable to read MarTech activation attempt", exception);
+    }
   }
 }

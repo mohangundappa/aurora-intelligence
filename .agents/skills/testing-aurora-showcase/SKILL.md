@@ -64,10 +64,63 @@ docker compose exec -T postgres psql -U aurora -d aurora \
 Prefer this over `seed-demo.sh --reset`, which wipes browser-created evidence.
 
 ## Views worth checking
-`/console` (journey), `/console/lifecycle`, `/console/experiments`,
-`/console/funnel`, `/console/ops`. `/console/funnel` shows the *browser session*
-funnel if `sessionStorage["aurora.session"]` exists; to see the aggregate funnel a
-presenter would get on a fresh machine, open it in an incognito window.
+`/console` (journey), `/console/workforce`, `/console/lifecycle`,
+`/console/experiments`, `/console/funnel`, `/console/ops`. `/console/funnel` shows
+the *browser session* funnel if `sessionStorage["aurora.session"]` exists; to see
+the aggregate funnel a presenter would get on a fresh machine, open it in an
+incognito window.
+
+## Testing `/console/workforce` (digital workforce loop)
+One aggregation endpoint backs the whole page: `GET /api/console/workforce`. It has
+no per-objective error isolation, so any single bad row blanks the entire view.
+
+- **A proposal that is not ACTIVATED can take the page down.** The analyses lookup
+  resolves the experiment definition, which only exists after activation, so any
+  proposal in PROPOSED/APPROVED/REJECTED may make the endpoint return 500 and the
+  page show only `Aurora API request failed: 500`. Reproduce/clean up with:
+  ```bash
+  docker compose exec -T postgres psql -U aurora -d aurora -c "insert into experiment_proposals (...) select gen_random_uuid(),'<objective>',insight_id,'probe-experiment',... ,'PROPOSED',now(),... from marketing_insights limit 1;"
+  docker compose exec -T postgres psql -U aurora -d aurora -c "delete from experiment_proposals where experiment_id='probe-experiment';"
+  ```
+- **Loading vs failure states** are easy to capture without code changes:
+  `docker compose pause backend` then reload ⇒ "Loading workforce data" card;
+  `docker compose stop backend` then reload ⇒ error banner. `docker compose start
+  backend` recovers in a few seconds.
+- **The analytics agent refuses instead of persisting a weak analysis.**
+  `AnalyticsAgent` (min 30 exposures/arm) returns `ZERO_EXPOSURES`,
+  `INSUFFICIENT_SAMPLE` or `INSUFFICIENT_VARIANTS` and writes no
+  `experiment_analyses` row. To exercise the UI's "GUARD NOT MET" branch you must
+  insert an analysis row with `sufficient_sample=false`, null `absolute_lift` and
+  `relative_lift`, and non-zero `conversionRate` values inside `variant_results`
+  (that last part is what proves the UI suppresses unsupported numbers).
+- **Agent-proposed experiments cannot record exposures.** Generated variant names
+  run 41–45 chars while `experiment_exposures.variant` is `varchar(40)`, so
+  inserting exposures fails with "value too long". Workaround: repoint the
+  proposal's `experiment_id` at a seeded experiment (e.g.
+  `destination-experience-v1`) before running the analytics agent, and disclose it.
+- **Read-only check without devtools noise:** the page should contain zero
+  `button`/`input`/`select`/`form` elements; a Tab sweep should only ever land on
+  links and `<details>` summaries.
+- Refusals are rendered from the execution's `output` JSON (`code` + `reason`), but
+  the status pill is driven by the execution status, which is `SUCCEEDED` for a
+  refusal — expect that mismatch and check whether it has been fixed.
+- An execution with `output: null` renders the literal text `null` in its
+  disclosure; worth checking after any change to the executions section.
+
+## Regression sweep for the customer journey
+Site: `/` search Miami → dates → 2 adults / 2 children → `/results` (a
+"Recommended for this journey" decision card and an `OFFER_PRESENTED` event should
+appear) → Pool filter → property → See room details → Select room → fill the form →
+Confirm simulated booking → "See you at …". Then `/console` for
+"This browser session" should list `PAGE_VIEWED … BOOKING_COMPLETED` and every
+signal with value + confidence + freshness + explanation + provenance. Offer
+delivery attempts are session-scoped; verify with:
+```bash
+docker compose exec -T postgres psql -U aurora -d aurora \
+  -c "select operation,status,idempotency_key,context_id from martech_activation_attempts order by attempted_at desc limit 5;"
+```
+Keys look like `offer:{sessionId}:{action}:{experience}:{experimentId}`, so a new
+browser session must produce its own key rather than reusing another visitor's.
 
 ## Devin Secrets Needed
 None — login is simulated and no external credentials are used.

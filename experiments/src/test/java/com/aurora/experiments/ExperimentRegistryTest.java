@@ -3,9 +3,11 @@ package com.aurora.experiments;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -64,42 +66,72 @@ class ExperimentRegistryTest {
   @Test
   void databaseUnavailableAtStartupFallsBackToYamlWithWarningPath() {
     ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
     when(repository.findAll())
         .thenThrow(new DataAccessResourceFailureException("database unavailable"));
 
     ExperimentRegistry registry =
         new ExperimentRegistry(
-            new PathMatchingResourcePatternResolver(), "classpath:/experiments/*.yaml", repository);
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
 
     assertThat(registry.definitions())
         .extracting(ExperimentDefinition::id)
         .containsExactly("destination-experience-v1");
     assertThat(registry.isDatabaseViewIncomplete()).isTrue();
+    verify(repository).findAll();
     assertThatThrownBy(() -> registry.assertCanWrite("new-experiment"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("database experiment definitions are unavailable");
   }
 
   @Test
-  void successfulRefreshRecoversTheIncompleteDatabaseView() {
+  void lookupDuringOutageUsesYamlViewWithoutRetryingDatabase() {
     ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
     when(repository.findAll())
         .thenThrow(new DataAccessResourceFailureException("database unavailable"))
         .thenReturn(List.of(definition("database-experiment")));
 
     ExperimentRegistry registry =
         new ExperimentRegistry(
-            new PathMatchingResourcePatternResolver(), "classpath:/experiments/*.yaml", repository);
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
 
     assertThat(registry.isDatabaseViewIncomplete()).isTrue();
-    registry.refresh();
+    assertThat(registry.definition("destination-experience-v1")).isNotNull();
+    verify(repository).findAll();
+    assertThat(scheduledRefresh).isNotNull();
+  }
+
+  @Test
+  void backgroundRefreshRecoversTheIncompleteDatabaseView() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
+    when(repository.findAll())
+        .thenThrow(new DataAccessResourceFailureException("database unavailable"))
+        .thenReturn(List.of(definition("database-experiment")));
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
+
+    scheduledRefresh.get().run();
+
     assertThat(registry.isDatabaseViewIncomplete()).isFalse();
     assertThat(registry.definition("database-experiment"))
         .isEqualTo(definition("database-experiment"));
   }
 
   @Test
-  void invalidDatabaseDefinitionStillFailsLoudly() {
+  void invalidDatabaseDefinitionStillFailsLoudlyAtStartup() {
     ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
     when(repository.findAll())
         .thenThrow(new IllegalArgumentException("allocations must sum to 100"));
@@ -112,6 +144,66 @@ class ExperimentRegistryTest {
                     repository))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("allocations");
+  }
+
+  @Test
+  void invalidDatabaseDefinitionDuringBackgroundRefreshRetainsServingView() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
+    when(repository.findAll())
+        .thenThrow(new DataAccessResourceFailureException("database unavailable"))
+        .thenThrow(new IllegalArgumentException("allocations must sum to 100"));
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
+
+    scheduledRefresh.get().run();
+
+    assertThat(registry.definition("destination-experience-v1")).isNotNull();
+    assertThat(registry.isDatabaseViewIncomplete()).isTrue();
+  }
+
+  @Test
+  void collidingDatabaseDefinitionDuringBackgroundRefreshRetainsServingView() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    AtomicReference<Runnable> scheduledRefresh = new AtomicReference<>();
+    when(repository.findAll())
+        .thenThrow(new DataAccessResourceFailureException("database unavailable"))
+        .thenReturn(List.of(definition("destination-experience-v1")));
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            (task, delay) -> scheduledRefresh.set(task));
+
+    scheduledRefresh.get().run();
+
+    assertThat(registry.definition("destination-experience-v1")).isNotNull();
+    assertThat(registry.isDatabaseViewIncomplete()).isTrue();
+  }
+
+  @Test
+  void shutsDownInjectedRefreshSchedulerWithTheRegistry() {
+    ExperimentDefinitionRepository repository = mock(ExperimentDefinitionRepository.class);
+    ExperimentRegistry.RefreshScheduler scheduler = mock(ExperimentRegistry.RefreshScheduler.class);
+    when(repository.findAll()).thenReturn(List.of());
+
+    ExperimentRegistry registry =
+        new ExperimentRegistry(
+            new PathMatchingResourcePatternResolver(),
+            "classpath:/experiments/*.yaml",
+            repository,
+            scheduler);
+
+    registry.shutdownRefreshScheduler();
+
+    verify(scheduler).shutdown();
   }
 
   private ExperimentDefinition definition(String id) {

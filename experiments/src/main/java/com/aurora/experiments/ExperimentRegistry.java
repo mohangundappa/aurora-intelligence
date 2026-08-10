@@ -1,12 +1,17 @@
 package com.aurora.experiments;
 
+import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +27,11 @@ public class ExperimentRegistry {
   private static final Logger log = LoggerFactory.getLogger(ExperimentRegistry.class);
   private final Map<String, ExperimentDefinition> yamlDefinitions;
   private final ExperimentDefinitionRepository repository;
+  private final RefreshScheduler refreshScheduler;
   private volatile Map<String, ExperimentDefinition> definitions;
   private volatile boolean databaseViewIncomplete;
-  private volatile Instant nextDatabaseRefreshAttempt = Instant.MIN;
+  private final AtomicBoolean refreshScheduled = new AtomicBoolean();
+  private static final Duration DATABASE_REFRESH_RETRY_DELAY = Duration.ofSeconds(5);
 
   @SuppressWarnings("unchecked")
   @Autowired
@@ -32,12 +39,22 @@ public class ExperimentRegistry {
       ResourcePatternResolver resolver,
       @Value("${aurora.experiments.location:classpath:/experiments/*.yaml}") String location,
       ExperimentDefinitionRepository repository) {
+    this(resolver, location, repository, defaultRefreshScheduler());
+  }
+
+  ExperimentRegistry(
+      ResourcePatternResolver resolver,
+      String location,
+      ExperimentDefinitionRepository repository,
+      RefreshScheduler refreshScheduler) {
     this.repository = repository;
+    this.refreshScheduler = refreshScheduler;
     this.yamlDefinitions = loadYaml(resolver, location);
     try {
       refresh();
     } catch (DataAccessException exception) {
       markDatabaseViewIncomplete();
+      scheduleDatabaseRefresh();
       log.warn(
           "Database experiment definitions unavailable during startup; serving YAML definitions only: {}",
           exception.getMessage());
@@ -46,19 +63,18 @@ public class ExperimentRegistry {
 
   public ExperimentRegistry(ResourcePatternResolver resolver, String location) {
     this.repository = null;
+    this.refreshScheduler = (task, delay) -> {};
     this.yamlDefinitions = loadYaml(resolver, location);
     refresh();
   }
 
   public List<ExperimentDefinition> definitions() {
-    refreshIfDatabaseViewIncomplete();
     return definitions.values().stream()
         .sorted(Comparator.comparing(ExperimentDefinition::id))
         .toList();
   }
 
   public ExperimentDefinition definition(String id) {
-    refreshIfDatabaseViewIncomplete();
     ExperimentDefinition definition = definitions.get(id);
     if (definition == null) {
       throw new UnknownExperimentException(id, definitions.keySet().stream().sorted().toList());
@@ -89,11 +105,23 @@ public class ExperimentRegistry {
         });
     definitions = Map.copyOf(refreshed);
     databaseViewIncomplete = false;
-    nextDatabaseRefreshAttempt = Instant.MIN;
+  }
+
+  public void refreshAfterWrite(String id) {
+    try {
+      refresh();
+    } catch (Exception exception) {
+      markDatabaseViewIncomplete();
+      scheduleDatabaseRefresh();
+      throw new IllegalStateException(
+          "Experiment definition '"
+              + id
+              + "' was persisted but is not yet in the serving view; background refresh has been scheduled",
+          exception);
+    }
   }
 
   public void assertCanWrite(String id) {
-    refreshIfDatabaseViewIncomplete();
     if (databaseViewIncomplete) {
       throw new IllegalStateException(
           "Cannot write experiment definition while database experiment definitions are unavailable; retry after the database recovers");
@@ -108,26 +136,65 @@ public class ExperimentRegistry {
     return databaseViewIncomplete;
   }
 
-  // Retry lazily and throttle failures so customer-facing lookups stay in-memory and recover later.
-  private void refreshIfDatabaseViewIncomplete() {
-    if (!databaseViewIncomplete || Instant.now().isBefore(nextDatabaseRefreshAttempt)) return;
-    synchronized (this) {
-      if (!databaseViewIncomplete || Instant.now().isBefore(nextDatabaseRefreshAttempt)) return;
-      try {
-        refresh();
-      } catch (DataAccessException exception) {
-        markDatabaseViewIncomplete();
-        log.warn(
-            "Database experiment definitions remain unavailable; retaining the YAML-only view and retrying later: {}",
-            exception.getMessage());
-      }
+  @PreDestroy
+  void shutdownRefreshScheduler() {
+    refreshScheduler.shutdown();
+  }
+
+  // Keep recovery off customer-facing threads and throttle retries during an outage.
+  private void scheduleDatabaseRefresh() {
+    if (!databaseViewIncomplete || !refreshScheduled.compareAndSet(false, true)) return;
+    refreshScheduler.schedule(this::runBackgroundRefresh, DATABASE_REFRESH_RETRY_DELAY);
+  }
+
+  private void runBackgroundRefresh() {
+    try {
+      if (!databaseViewIncomplete) return;
+      refresh();
+    } catch (Exception exception) {
+      markDatabaseViewIncomplete();
+      log.error(
+          "Unable to refresh database experiment definitions; retaining the last good view and retrying later",
+          exception);
+    } finally {
+      refreshScheduled.set(false);
+      if (databaseViewIncomplete) scheduleDatabaseRefresh();
     }
   }
 
   private void markDatabaseViewIncomplete() {
     databaseViewIncomplete = true;
-    nextDatabaseRefreshAttempt = Instant.now().plusSeconds(5);
-    definitions = Map.copyOf(yamlDefinitions);
+    if (definitions == null) {
+      definitions = Map.copyOf(yamlDefinitions);
+    }
+  }
+
+  private static RefreshScheduler defaultRefreshScheduler() {
+    ScheduledExecutorService executor =
+        Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+              Thread thread = new Thread(runnable, "experiment-registry-refresh");
+              thread.setDaemon(true);
+              return thread;
+            });
+    return new RefreshScheduler() {
+      @Override
+      public void schedule(Runnable task, Duration delay) {
+        executor.schedule(task, delay.toMillis(), TimeUnit.MILLISECONDS);
+      }
+
+      @Override
+      public void shutdown() {
+        executor.shutdownNow();
+      }
+    };
+  }
+
+  @FunctionalInterface
+  interface RefreshScheduler {
+    void schedule(Runnable task, Duration delay);
+
+    default void shutdown() {}
   }
 
   private Map<String, ExperimentDefinition> loadYaml(

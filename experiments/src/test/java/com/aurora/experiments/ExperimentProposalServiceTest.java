@@ -73,7 +73,7 @@ class ExperimentProposalServiceTest {
     when(repository.findById(id))
         .thenReturn(java.util.Optional.of(approved), java.util.Optional.of(activated));
 
-    service.activate(id, "operator", "approved rollout configuration");
+    providerService().activate(id, "operator", "approved rollout configuration");
 
     verify(definitions).saveAfterCommit(approved.toDraftDefinition());
     verify(repository)
@@ -96,7 +96,7 @@ class ExperimentProposalServiceTest {
         .when(definitions)
         .saveAfterCommit(approved.toDraftDefinition());
 
-    assertThatThrownBy(() -> service.activate(id, "operator", "activate"))
+    assertThatThrownBy(() -> providerService().activate(id, "operator", "activate"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("persisted but is not yet in the serving view");
     verify(repository, never())
@@ -129,9 +129,67 @@ class ExperimentProposalServiceTest {
     verify(campaigns).register(org.mockito.ArgumentMatchers.any());
   }
 
+  @Test
+  void partialAudienceActivationIsRecordedAndBlocksGovernanceTransition() {
+    AudienceActivation audiences = mock(AudienceActivation.class);
+    CampaignRegistration campaigns = mock(CampaignRegistration.class);
+    ActivationAttemptRepository attempts = mock(ActivationAttemptRepository.class);
+    when(audiences.activate(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            new ActivationResult(
+                "audience",
+                "key",
+                ActivationResult.Status.PARTIAL,
+                4,
+                2,
+                "two records rejected",
+                java.util.Map.of("provider", "test")));
+    ExperimentProposalService providerService =
+        new ExperimentProposalService(
+            repository, definitions, timings, audiences, campaigns, attempts);
+    UUID id = UUID.randomUUID();
+    ExperimentProposal approved = proposal(ExperimentProposal.GovernanceState.APPROVED, id);
+    when(repository.findById(id)).thenReturn(java.util.Optional.of(approved));
+
+    assertThatThrownBy(() -> providerService.activate(id, "operator", "activate"))
+        .isInstanceOf(MarTechActivationException.class)
+        .hasMessageContaining("PARTIAL")
+        .hasMessageContaining("audience");
+    verify(attempts).save(org.mockito.ArgumentMatchers.any(ActivationAttempt.class));
+    verify(campaigns, never()).register(org.mockito.ArgumentMatchers.any());
+    verify(repository, never())
+        .transition(
+            id,
+            ExperimentProposal.GovernanceState.APPROVED,
+            ExperimentProposal.GovernanceState.ACTIVATED,
+            "operator",
+            "activate");
+  }
+
+  @Test
+  void missingProvidersAreNotRecordedAsAccepted() {
+    UUID id = UUID.randomUUID();
+    ExperimentProposal approved = proposal(ExperimentProposal.GovernanceState.APPROVED, id);
+    when(repository.findById(id)).thenReturn(java.util.Optional.of(approved));
+
+    assertThatThrownBy(() -> service.activate(id, "operator", "activate"))
+        .isInstanceOf(MarTechActivationException.class)
+        .hasMessageContaining("UNCONFIGURED");
+  }
+
   private ActivationResult acceptedResult(String destination) {
     return new ActivationResult(
         destination, "key", ActivationResult.Status.ACCEPTED, 1, 0, null, java.util.Map.of());
+  }
+
+  private ExperimentProposalService providerService() {
+    AudienceActivation audiences = mock(AudienceActivation.class);
+    CampaignRegistration campaigns = mock(CampaignRegistration.class);
+    when(audiences.activate(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(acceptedResult("audience"));
+    when(campaigns.register(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(acceptedResult("campaign"));
+    return new ExperimentProposalService(repository, definitions, timings, audiences, campaigns);
   }
 
   private ExperimentProposal proposal(ExperimentProposal.GovernanceState state) {

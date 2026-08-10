@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aurora.common.martech.ActivationResult;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -85,5 +86,31 @@ class ExperimentProposalControllerTest {
                 .content("{\"actor\":\"operator\",\"reason\":\"retry\"}"))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error").value("Illegal transition from ACTIVATED"));
+  }
+
+  @Test
+  void providerRejectionReturnsBadGatewayWithDestinationAndReason() throws Exception {
+    UUID proposalId = UUID.randomUUID();
+    ActivationResult result =
+        new ActivationResult(
+            "booking-destination",
+            "key",
+            ActivationResult.Status.REJECTED,
+            0,
+            1,
+            "rate limited",
+            java.util.Map.of("provider", "test"));
+    when(service.activate(proposalId, "operator", "activate"))
+        .thenThrow(new MarTechActivationException("campaign", result));
+
+    mvc.perform(
+            post("/api/experiment-proposals/" + proposalId + "/activate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"actor\":\"operator\",\"reason\":\"activate\"}"))
+        .andExpect(status().isBadGateway())
+        .andExpect(jsonPath("$.destination").value("booking-destination"))
+        .andExpect(jsonPath("$.status").value("REJECTED"))
+        .andExpect(jsonPath("$.rejectedCount").value("1"))
+        .andExpect(jsonPath("$.providerReason").value("rate limited"));
   }
 }

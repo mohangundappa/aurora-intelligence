@@ -21,8 +21,8 @@ public record ActivationResult(
     if (acceptedCount < 0 || rejectedCount < 0) {
       throw new IllegalArgumentException("activation counts cannot be negative");
     }
-    if (status == Status.REJECTED && (reason == null || reason.isBlank())) {
-      throw new IllegalArgumentException("rejected activations require a reason");
+    if (requiresReason(status) && (reason == null || reason.isBlank())) {
+      throw new IllegalArgumentException(status + " activations require a reason");
     }
     providerMetadata = Map.copyOf(providerMetadata == null ? Map.of() : providerMetadata);
   }
@@ -30,6 +30,12 @@ public record ActivationResult(
   public enum Status {
     ACCEPTED,
     REJECTED,
-    PARTIAL
+    PARTIAL,
+    FAILED,
+    UNCONFIGURED
+  }
+
+  private static boolean requiresReason(Status status) {
+    return status == Status.REJECTED || status == Status.FAILED || status == Status.UNCONFIGURED;
   }
 }

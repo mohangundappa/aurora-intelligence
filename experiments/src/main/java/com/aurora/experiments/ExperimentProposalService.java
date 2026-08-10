@@ -6,9 +6,12 @@ import com.aurora.common.martech.AudienceActivation;
 import com.aurora.common.martech.CampaignRegistration;
 import com.aurora.objectives.WorkflowStage;
 import com.aurora.objectives.WorkflowStageTimingService;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,26 +24,38 @@ public class ExperimentProposalService {
   private final WorkflowStageTimingService timings;
   private final AudienceActivation audiences;
   private final CampaignRegistration campaigns;
+  private final ActivationAttemptRepository activationAttempts;
 
-  @org.springframework.beans.factory.annotation.Autowired
+  @Autowired
   public ExperimentProposalService(
       ExperimentProposalRepository repository,
       ExperimentDefinitionService definitions,
       WorkflowStageTimingService timings,
       AudienceActivation audiences,
-      CampaignRegistration campaigns) {
+      CampaignRegistration campaigns,
+      ActivationAttemptRepository activationAttempts) {
     this.repository = repository;
     this.definitions = definitions;
     this.timings = timings;
     this.audiences = audiences;
     this.campaigns = campaigns;
+    this.activationAttempts = activationAttempts;
   }
 
   public ExperimentProposalService(
       ExperimentProposalRepository repository,
       ExperimentDefinitionService definitions,
       WorkflowStageTimingService timings) {
-    this(repository, definitions, timings, null, null);
+    this(repository, definitions, timings, null, null, null);
+  }
+
+  public ExperimentProposalService(
+      ExperimentProposalRepository repository,
+      ExperimentDefinitionService definitions,
+      WorkflowStageTimingService timings,
+      AudienceActivation audiences,
+      CampaignRegistration campaigns) {
+    this(repository, definitions, timings, audiences, campaigns, null);
   }
 
   public void save(ExperimentProposal proposal) {
@@ -77,7 +92,7 @@ public class ExperimentProposalService {
     timings.record(
         proposal.objectiveId(),
         WorkflowStage.APPROVAL,
-        java.time.Duration.between(started, completed).toMillis(),
+        Duration.between(started, completed).toMillis(),
         approver,
         started,
         completed);
@@ -107,8 +122,10 @@ public class ExperimentProposalService {
     requireState(proposal, ExperimentProposal.GovernanceState.APPROVED);
     Instant started = Instant.now();
     ActivationResult audienceResult = registerAudience(proposal);
+    recordAttempt(proposal, "AUDIENCE", audienceRequest(proposal), audienceResult);
     requireAccepted("audience", audienceResult);
     ActivationResult campaignResult = registerCampaign(proposal);
+    recordAttempt(proposal, "CAMPAIGN", campaignRequest(proposal), campaignResult);
     requireAccepted("campaign", campaignResult);
     definitions.saveAfterCommit(proposal.toDraftDefinition());
     repository.transition(
@@ -121,7 +138,7 @@ public class ExperimentProposalService {
     timings.record(
         proposal.objectiveId(),
         WorkflowStage.EXPERIMENT_CONFIGURATION,
-        java.time.Duration.between(started, completed).toMillis(),
+        Duration.between(started, completed).toMillis(),
         actor,
         started,
         completed);
@@ -131,6 +148,11 @@ public class ExperimentProposalService {
   public List<ExperimentProposalRepository.GovernanceAudit> audit(UUID proposalId) {
     get(proposalId);
     return repository.audit(proposalId);
+  }
+
+  public List<ActivationAttempt> activationAttempts(UUID proposalId) {
+    get(proposalId);
+    return activationAttempts == null ? List.of() : activationAttempts.findByProposalId(proposalId);
   }
 
   private void requireState(
@@ -161,25 +183,18 @@ public class ExperimentProposalService {
       return new ActivationResult(
           proposal.targetAudience(),
           "disabled-" + proposal.proposalId(),
-          ActivationResult.Status.ACCEPTED,
-          1,
+          ActivationResult.Status.UNCONFIGURED,
           0,
-          null,
-          java.util.Map.of("provider", "disabled"));
+          0,
+          "no audience activation provider is configured",
+          Map.of());
     }
-    return audiences.activate(
-        new ActivationRequest(
-            proposal.targetAudience(),
-            java.util.Map.of(
-                "audience",
-                proposal.targetAudience(),
-                "targetingSignal",
-                proposal.targetingSignal(),
-                "consentEnforced",
-                true,
-                "eligibilityEnforced",
-                true),
-            proposal.proposalId() + ":audience"));
+    ActivationRequest request = audienceRequest(proposal);
+    try {
+      return audiences.activate(request);
+    } catch (RuntimeException exception) {
+      return failedResult(request, "audience activation failed: " + message(exception));
+    }
   }
 
   private ActivationResult registerCampaign(ExperimentProposal proposal) {
@@ -187,26 +202,76 @@ public class ExperimentProposalService {
       return new ActivationResult(
           proposal.experimentId(),
           "disabled-" + proposal.proposalId(),
-          ActivationResult.Status.ACCEPTED,
-          1,
+          ActivationResult.Status.UNCONFIGURED,
           0,
-          null,
-          java.util.Map.of("provider", "disabled"));
+          0,
+          "no campaign registration provider is configured",
+          Map.of());
     }
-    return campaigns.register(
-        new ActivationRequest(
-            proposal.experimentId(),
-            java.util.Map.of(
-                "experimentId", proposal.experimentId(),
-                "objectiveId", proposal.objectiveId(),
-                "approvedArtifact", true),
-            proposal.proposalId() + ":campaign"));
+    ActivationRequest request = campaignRequest(proposal);
+    try {
+      return campaigns.register(request);
+    } catch (RuntimeException exception) {
+      return failedResult(request, "campaign registration failed: " + message(exception));
+    }
   }
 
   private void requireAccepted(String operation, ActivationResult result) {
-    if (result.status() == ActivationResult.Status.REJECTED) {
-      throw new IllegalStateException(
-          "Marketing platform rejected " + operation + " activation: " + result.reason());
+    if (result.status() != ActivationResult.Status.ACCEPTED) {
+      throw new MarTechActivationException(operation, result);
     }
+  }
+
+  private ActivationRequest audienceRequest(ExperimentProposal proposal) {
+    return new ActivationRequest(
+        proposal.targetAudience(),
+        Map.of(
+            "audience",
+            proposal.targetAudience(),
+            "targetingSignal",
+            proposal.targetingSignal(),
+            "consentEnforced",
+            true,
+            "eligibilityEnforced",
+            true),
+        proposal.proposalId() + ":audience");
+  }
+
+  private ActivationRequest campaignRequest(ExperimentProposal proposal) {
+    return new ActivationRequest(
+        proposal.experimentId(),
+        Map.of(
+            "experimentId", proposal.experimentId(),
+            "objectiveId", proposal.objectiveId(),
+            "approvedArtifact", true),
+        proposal.proposalId() + ":campaign");
+  }
+
+  private void recordAttempt(
+      ExperimentProposal proposal,
+      String operation,
+      ActivationRequest request,
+      ActivationResult result) {
+    if (activationAttempts != null) {
+      activationAttempts.save(
+          ActivationAttempt.from(proposal.proposalId(), operation, request, result));
+    }
+  }
+
+  private ActivationResult failedResult(ActivationRequest request, String reason) {
+    return new ActivationResult(
+        request.destinationId(),
+        request.idempotencyKey(),
+        ActivationResult.Status.FAILED,
+        0,
+        0,
+        reason,
+        Map.of());
+  }
+
+  private String message(RuntimeException exception) {
+    return exception.getMessage() == null
+        ? exception.getClass().getSimpleName()
+        : exception.getMessage();
   }
 }

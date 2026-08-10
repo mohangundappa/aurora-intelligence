@@ -10,11 +10,21 @@ import com.aurora.experiments.ExperimentService;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DecisionEngine {
+  private static final long DELIVERY_TIMEOUT_MILLIS = 250;
+  private static final ExecutorService DELIVERY_EXECUTOR =
+      Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("martech-delivery-", 0).factory());
   private final DecisionPolicy policy;
   private final DecisionRepository repository;
   private final ExperimentService experiments;
@@ -48,10 +58,14 @@ public class DecisionEngine {
       boolean personalizationConsent,
       String correlationId) {
     Decision decision = preview(sessionId, profile, signals, personalizationConsent, correlationId);
-    if (personalizationConsent && profile.consent().personalization() && delivery != null) {
+    if (personalizationConsent && profile.consent().personalization()) {
       ActivationResult activation =
-          delivery.deliver(
-              new ActivationRequest(decision.channel(), decisionPayload(decision), correlationId));
+          delivery == null
+              ? unconfiguredActivation(decision)
+              : deliverBounded(
+                  decision,
+                  new ActivationRequest(
+                      decision.channel(), decisionPayload(decision), correlationId));
       decision = withActivationResult(decision, activation);
     }
     persist(decision, profile, signals);
@@ -111,9 +125,7 @@ public class DecisionEngine {
   private Decision withActivationResult(Decision decision, ActivationResult activation) {
     String statusCode = "MARTECH_ACTIVATION_" + activation.status();
     List<String> reasonCodes =
-        java.util.stream.Stream.concat(
-                decision.reasonCodes().stream(), java.util.stream.Stream.of(statusCode))
-            .toList();
+        Stream.concat(decision.reasonCodes().stream(), Stream.of(statusCode)).toList();
     String explanation =
         activation.reason() == null
             ? decision.explanation()
@@ -128,5 +140,46 @@ public class DecisionEngine {
         explanation,
         decision.sessionId(),
         decision.correlationId());
+  }
+
+  private ActivationResult deliverBounded(Decision decision, ActivationRequest request) {
+    Future<ActivationResult> future = DELIVERY_EXECUTOR.submit(() -> delivery.deliver(request));
+    try {
+      return future.get(DELIVERY_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException exception) {
+      future.cancel(true);
+      return failedActivation(request, "marketing platform delivery timed out");
+    } catch (InterruptedException exception) {
+      Thread.currentThread().interrupt();
+      return failedActivation(request, "marketing platform delivery was interrupted");
+    } catch (ExecutionException exception) {
+      String reason =
+          exception.getCause() == null || exception.getCause().getMessage() == null
+              ? "marketing platform delivery failed"
+              : "marketing platform delivery failed: " + exception.getCause().getMessage();
+      return failedActivation(request, reason);
+    }
+  }
+
+  private ActivationResult unconfiguredActivation(Decision decision) {
+    return new ActivationResult(
+        decision.channel(),
+        decision.correlationId(),
+        ActivationResult.Status.UNCONFIGURED,
+        0,
+        0,
+        "no marketing platform delivery provider is configured",
+        Map.of());
+  }
+
+  private ActivationResult failedActivation(ActivationRequest request, String reason) {
+    return new ActivationResult(
+        request.destinationId(),
+        request.idempotencyKey(),
+        ActivationResult.Status.FAILED,
+        0,
+        0,
+        reason,
+        Map.of());
   }
 }

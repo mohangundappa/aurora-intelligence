@@ -194,7 +194,7 @@ public class ExperimentationAgent {
                 + "A 50/50 split is used to preserve comparable randomized arms. "
                 + samplePlanningReasoning
                 + "Feasibility projects the observed "
-                + formatRate(sessionsPerDay)
+                + formatSessionsPerDay(sessionsPerDay)
                 + " sessions per day across the elapsed "
                 + elapsedWindowDays
                 + "-day portion of the objective window over the "
@@ -222,5 +222,9 @@ public class ExperimentationAgent {
 
   private String formatRate(double value) {
     return "%.4f".formatted(value);
+  }
+
+  private String formatSessionsPerDay(double value) {
+    return "%.1f".formatted(value);
   }
 }

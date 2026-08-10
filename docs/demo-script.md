@@ -84,8 +84,15 @@ authenticated approval. Production requires SSO/RBAC.
    Approval must be completed before clicking **Deploy**. Deploying first is
    rejected by the governance gate with a visible `409`; that is an enforced
    legality check, not a disabled demo button.
+   The page re-renders after each transition and the buttons can move, so
+   re-locate **Approve**, **Deploy**, or **Rollback** before each click rather
+   than clicking the same screen position twice; a stale click silently does
+   nothing.
 2. Show the provider-neutral `AUDIENCE` and `CAMPAIGN` attempts: destination,
    accepted status, counts, idempotency key, and opaque metadata.
+   The collapsed **Provider activation attempts (107)** list is dominated by
+   seeded offer-delivery activations; those rows are the expected delivery
+   activity behind the count.
 3. Point out the 100 total synthetic exposures. On every reset, the
    deterministic experiment assignment produces **52 control** and **48
    personalized** exposures. Do not describe them as commercial traffic.

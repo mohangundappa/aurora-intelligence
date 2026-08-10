@@ -283,7 +283,7 @@ class ExperimentationAgentTest {
 
     assertThat(result.refusal()).isNull();
     assertThat(result.output()).isNotNull();
-    assertThat(result.output().reasoning()).contains("elapsed");
+    assertThat(result.output().reasoning()).contains("elapsed", "5.5 sessions per day");
   }
 
   private SignalDefinition signal() {

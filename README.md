@@ -200,3 +200,5 @@ docs/         architecture, catalogs, ownership, API, roadmap and ADRs
 - [API guide](docs/api.md)
 - [Ownership boundaries](docs/ownership-boundaries.md)
 - [Enterprise roadmap](docs/enterprise-roadmap.md)
+- [Capability guide](docs/capability-guide.md) — the sequenced walkthrough of all
+  capabilities, with implementation rationale and Aurora Hotels use cases

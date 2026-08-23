@@ -1,10 +1,10 @@
 package com.aurora.models;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,24 +43,26 @@ public class ModelCandidateService {
   public CandidateRegistration register(
       String pathModelName, String idempotencyKey, JsonNode body) {
     if (body == null || !body.isObject()) {
-      throw new IllegalArgumentException("candidate body must be a JSON object");
+      throw new InvalidCandidateException("candidate body must be a JSON object");
     }
-    Set<String> unknown = new HashSet<>();
+    Set<String> unknown = new TreeSet<>();
     body.fieldNames()
         .forEachRemaining(
             field -> {
               if (!ALLOWED_FIELDS.contains(field)) unknown.add(field);
             });
     if (!unknown.isEmpty()) {
-      throw new IllegalArgumentException("Unknown candidate field: " + unknown.iterator().next());
+      String prefix =
+          unknown.size() == 1 ? "Unknown candidate field: " : "Unknown candidate fields: ";
+      throw new InvalidCandidateException(prefix + String.join(", ", unknown));
     }
     String modelName = requiredText(body, "modelName");
     if (!modelName.equals(pathModelName)) {
-      throw new IllegalArgumentException("modelName must match the path model name");
+      throw new InvalidCandidateException("modelName must match the path model name");
     }
     String packageHash = requiredText(body, "packageHash");
     if (idempotencyKey != null && !idempotencyKey.equals(packageHash)) {
-      throw new IllegalArgumentException("Idempotency-Key must match packageHash");
+      throw new InvalidCandidateException("Idempotency-Key must match packageHash");
     }
     String studioInitiativeId = requiredText(body, "studioInitiativeId");
     Map<String, Object> packageContent =
@@ -78,7 +80,7 @@ public class ModelCandidateService {
   private String requiredText(JsonNode body, String field) {
     JsonNode value = body.get(field);
     if (value == null || !value.isTextual() || value.asText().isBlank()) {
-      throw new IllegalArgumentException(field + " is required");
+      throw new InvalidCandidateException(field + " is required");
     }
     return value.asText();
   }

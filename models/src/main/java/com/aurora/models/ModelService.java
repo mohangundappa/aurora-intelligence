@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,11 +11,6 @@ public class ModelService {
   private final ModelRepository repository;
   private final ModelCandidateService candidates;
 
-  public ModelService(ModelRepository repository) {
-    this(repository, null);
-  }
-
-  @Autowired
   public ModelService(ModelRepository repository, ModelCandidateService candidates) {
     this.repository = repository;
     this.candidates = candidates;
@@ -26,22 +20,12 @@ public class ModelService {
     return repository.findAll(name);
   }
 
-  public CandidateRegistration registerCandidate(String name, JsonNode body) {
-    return registerCandidate(name, null, body);
-  }
-
   public CandidateRegistration registerCandidate(
       String name, String idempotencyKey, JsonNode body) {
-    if (candidates == null) {
-      throw new IllegalStateException("Model candidate registration is unavailable");
-    }
     return candidates.register(name, idempotencyKey, body);
   }
 
   public List<ModelCandidate> candidates(String name) {
-    if (candidates == null) {
-      throw new IllegalStateException("Model candidate registration is unavailable");
-    }
     return candidates.candidates(name);
   }
 
@@ -66,7 +50,11 @@ public class ModelService {
         repository.findAll(name).stream()
             .filter(candidate -> candidate.version().equals(version))
             .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown model version " + version));
+            .orElseThrow(
+                () ->
+                    new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Unknown model version " + version));
     double[][] rows = {{1, 0, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 1}, {0, 0, 0, 1}};
     double[] labels = {25, 60, 78, 46};
     double error = 0;

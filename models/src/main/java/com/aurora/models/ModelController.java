@@ -72,9 +72,9 @@ public class ModelController {
     return models.predict(name, features);
   }
 
-  @ExceptionHandler(IllegalArgumentException.class)
+  @ExceptionHandler(InvalidCandidateException.class)
   @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public Map<String, String> invalid(IllegalArgumentException exception) {
+  public Map<String, String> invalid(InvalidCandidateException exception) {
     return Map.of("error", exception.getMessage());
   }
 }

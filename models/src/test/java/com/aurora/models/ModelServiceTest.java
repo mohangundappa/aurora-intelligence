@@ -26,7 +26,7 @@ class ModelServiceTest {
                     5d)));
 
     Prediction prediction =
-        new ModelService(repository)
+        new ModelService(repository, mock(ModelCandidateService.class))
             .predict("booking-intent", Map.of("propertyViewed", 2d, "bookingStarted", 1d));
 
     assertThat(prediction.modelVersion()).isEqualTo("3.0");
@@ -40,7 +40,7 @@ class ModelServiceTest {
   @Test
   void lifecycleOperationsDelegateWithActor() {
     ModelRepository repository = mock(ModelRepository.class);
-    ModelService service = new ModelService(repository);
+    ModelService service = new ModelService(repository, mock(ModelCandidateService.class));
 
     service.approve("booking-intent", "2.0", "tester");
     service.deploy("booking-intent", "2.0", "tester");
@@ -56,7 +56,10 @@ class ModelServiceTest {
     ModelRepository repository = mock(ModelRepository.class);
     when(repository.findDeployed("booking-intent")).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> new ModelService(repository).predict("booking-intent", Map.of()))
+    assertThatThrownBy(
+            () ->
+                new ModelService(repository, mock(ModelCandidateService.class))
+                    .predict("booking-intent", Map.of()))
         .isInstanceOf(ResponseStatusException.class)
         .hasMessageContaining("No deployed model version");
   }

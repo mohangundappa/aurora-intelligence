@@ -130,6 +130,22 @@ class ModelCandidateIntegrationTest {
   }
 
   @Test
+  void multipleUnknownFieldsAreReportedInSortedOrder() throws Exception {
+    String packageHash = "hash-" + UUID.randomUUID();
+    String body =
+        candidateBody(packageHash, UUID.randomUUID().toString())
+            .replace("\"clientId\": \"studio-client\"", "\"zeta\": true, \"alpha\": true");
+
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("Idempotency-Key", packageHash)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Unknown candidate fields: alpha, zeta"));
+  }
+
+  @Test
   void missingRequiredPackageFieldIsRejected() throws Exception {
     String packageHash = "";
     String body = candidateBody(packageHash, UUID.randomUUID().toString());
@@ -141,6 +157,12 @@ class ModelCandidateIntegrationTest {
                 .content(body))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("packageHash is required"));
+  }
+
+  @Test
+  void unknownModelVersionIsNotFound() throws Exception {
+    mvc.perform(get("/api/models/booking-intent/does-not-exist/evaluation"))
+        .andExpect(status().isNotFound());
   }
 
   @Test

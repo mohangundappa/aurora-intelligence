@@ -14,6 +14,7 @@ public class ModelCandidateService {
   private static final Set<String> ALLOWED_FIELDS =
       Set.of(
           "studioInitiativeId",
+          "requirementId",
           "packageHash",
           "modelName",
           "targeting",

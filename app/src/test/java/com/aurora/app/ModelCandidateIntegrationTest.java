@@ -82,7 +82,10 @@ class ModelCandidateIntegrationTest {
                 .value(packageHash))
         .andExpect(
             jsonPath("$[?(@.candidateId == '" + candidateId + "')].packageContent.clientId")
-                .value("studio-client"));
+                .value("studio-client"))
+        .andExpect(
+            jsonPath("$[?(@.candidateId == '" + candidateId + "')].packageContent.requirementId")
+                .value("studio-requirement"));
 
     assertThat(
             jdbc.queryForObject(
@@ -194,6 +197,7 @@ class ModelCandidateIntegrationTest {
     return """
         {
           "studioInitiativeId": "%s",
+          "requirementId": "studio-requirement",
           "packageHash": "%s",
           "modelName": "booking-intent",
           "targeting": {"cohortSql": "select 1"},

@@ -4,3 +4,6 @@ spring:
   kafka:
     listener:
       auto-startup: false
+aurora:
+  candidates:
+    studio-token: studio-demo-token

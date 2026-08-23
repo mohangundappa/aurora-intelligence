@@ -1,5 +1,6 @@
 package com.aurora.models;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,13 +9,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class ModelService {
   private final ModelRepository repository;
+  private final ModelCandidateService candidates;
 
-  public ModelService(ModelRepository repository) {
+  public ModelService(ModelRepository repository, ModelCandidateService candidates) {
     this.repository = repository;
+    this.candidates = candidates;
   }
 
   public List<ModelVersion> versions(String name) {
     return repository.findAll(name);
+  }
+
+  public CandidateRegistration registerCandidate(
+      String name, String idempotencyKey, String studioToken, JsonNode body) {
+    return candidates.register(name, idempotencyKey, studioToken, body);
+  }
+
+  public List<ModelCandidate> candidates(String name) {
+    return candidates.candidates(name);
   }
 
   public void approve(String name, String version, String actor) {
@@ -38,7 +50,11 @@ public class ModelService {
         repository.findAll(name).stream()
             .filter(candidate -> candidate.version().equals(version))
             .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown model version " + version));
+            .orElseThrow(
+                () ->
+                    new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Unknown model version " + version));
     double[][] rows = {{1, 0, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 1}, {0, 0, 0, 1}};
     double[] labels = {25, 60, 78, 46};
     double error = 0;

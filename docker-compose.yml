@@ -62,6 +62,7 @@ services:
       FLYWAY_ENABLED: "true"
       REDIS_HOST: redis
       REDPANDA_BROKERS: redpanda:9092
+      AURORA_CANDIDATES_STUDIO_TOKEN: ${AURORA_CANDIDATES_STUDIO_TOKEN:-aurora-model-studio-demo-token}
     ports:
       - "8080:8080"
     depends_on:

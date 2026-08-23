@@ -499,6 +499,11 @@ then approves it live as a named human with a reason, and the handoff registers.
 
 # Part III — The seam: what Aurora actually receives
 
+**Status.** This is the one capability in the guide that is not yet on Aurora's `main`:
+the receiving endpoint and its `V22__model_candidates.sql` migration live on
+[PR #28](https://github.com/mohangundappa/aurora-intelligence/pull/28), which is green but
+unmerged. A live cross-repo handoff needs it merged and both stacks running.
+
 **Why it is designed this way.** The original plan was to register the candidate into
 Aurora's registry as `TESTED`. That is wrong and worth saying plainly: Aurora's registry
 row is a scorer (features, weights, bias) and `TESTED` is a status a version earns by
@@ -515,7 +520,7 @@ Idempotency-Key: <packageHash>
 → 201 { candidateId, status: "AWAITING_WEIGHTS" }
 ```
 
-Aurora stores it in `model_candidates` (`V22`) with `unique (model_name, package_hash)`
+Aurora stores it in `model_candidates` with `unique (model_name, package_hash)`
 for idempotent replay and an append-only `model_candidate_audit` recording `REGISTERED` /
 `REPLAYED`. A candidate is **not** a `model_versions` row: never servable, never in a
 lifecycle transition, and `approve` / `deploy` / `rollback` / `evaluation` on a candidate

@@ -5,6 +5,11 @@ capability is, **why** it exists, **how** it is built, and **an Aurora Hotels us
 for each. It is written to be read top to bottom by someone who has not seen the code,
 and to survive a technical reviewer reading the code afterwards.
 
+Use the context diagram for ownership, the runtime diagram for event-to-value flow,
+the initiative diagram for gates, the AI boundary for model scope, the lifecycle
+diagram for trust, the workforce diagram for agent governance, and the handoff
+sequence for cross-repository delivery.
+
 Aurora Hotels is fictional. No real hotel brand's trademark, branding, proprietary data,
 or copyrighted material is used. Aurora works **beside** Adobe Experience Platform,
 Salesforce Data Cloud, Tealium, Segment or any other CDP; it never replaces the
@@ -21,6 +26,38 @@ CDP vendor, the implementation partner, our customer-intelligence team, client I
 Marketing — mapped in [ownership-boundaries.md](ownership-boundaries.md).
 
 ## Two products, one loop
+
+```mermaid
+flowchart LR
+  subgraph estate["Client CDP and MarTech estate"]
+    profile["Profile system of record"]
+    consent["Consent system of record"]
+    identity["Identity system of record"]
+    audiences["Audience system of record"]
+  end
+
+  subgraph runtime["Aurora Intelligence runtime plane"]
+    ingest["Ingest and signal runtime"]
+    context["ContextService<br/>reads profile<br/>does not own profile"]
+    decision["DecisionEngine"]
+    activation["Provider neutral activation"]
+    measurement["Experiments and measurement"]
+  end
+
+  subgraph studio["Aurora Model Studio design plane"]
+    knowledge["Governed knowledge"]
+    design["Targeting feature<br/>and experiment design"]
+    handoff["Human approved<br/>design package"]
+  end
+
+  profile <--> |"CdpAdapter seam"| context
+  consent <--> |"CdpAdapter seam"| context
+  identity <--> |"identity seam"| context
+  audiences <--> |"MarTech adapter seam"| activation
+  ingest --> context --> decision --> activation --> measurement
+  knowledge --> design --> handoff
+  handoff --> |"HTTP handoff"| ingest
+```
 
 | | Aurora Intelligence (this repository) | Aurora Model Studio ([separate repository](https://github.com/mohangundappa/aurora-model-studio)) |
 |---|---|---|
@@ -97,6 +134,36 @@ records no experiment exposure.
 account at booking. The session's prior evidence becomes attributable to the known
 customer through one explicit link row with a correlation ID — the join a marketer
 actually needs, without claiming to own the client's identity graph.
+
+```mermaid
+flowchart LR
+  browser["Browser tracker<br/>frontend lib tracker ts"] --> api["Ingest API<br/>POST /api/v1/events"]
+  api --> catalog["EventCatalog validation"]
+  catalog --> |"valid"| raw[("raw_events")]
+  catalog --> |"invalid"| quarantine[("quarantined_events<br/>reason and original JSON")]
+  raw --> topic{{"Redpanda<br/>aurora events raw v1"}}
+  topic --> consumer["SignalConsumer"]
+  raw -.-> |"replay endpoint"| engine
+  consumer --> engine["SignalEngine<br/>consent filter"]
+  engine --> calculators["YAML calculators"]
+  calculators --> derived[("derived_signals")]
+  consumer --> cdp["SimulatedCdpAdapter"]
+  cdp --> profile[("CDP profile<br/>consent and identity")]
+  derived --> context["ContextService"]
+  profile --> context
+  context <--> redis[("Redis context cache")]
+  context --> decision["DecisionEngine<br/>decision policy YAML"]
+  decision --> decisions[("decisions")]
+  decisions --> assignment["Experiment assignment"]
+  assignment --> exposures[("experiment exposures")]
+  decisions --> experience["Customer facing experience"]
+  experience --> |"interaction events"| browser
+  raw --> |"BOOKING COMPLETED<br/>joined by correlation ID"| outcomes[("experiment outcomes")]
+  exposures --> measurement["Measurement<br/>lift and evidence guard"]
+  outcomes --> measurement
+  quarantine --> console["Console quality view"]
+  measurement --> console
+```
 
 ## 3. Signals as configuration, not code changes
 
@@ -221,6 +288,22 @@ second seeded objective, *Explore an unsupported loyalty question*, produces a r
 attribution, not authorization; production needs client IT's SSO/RBAC in front of these
 endpoints.
 
+```mermaid
+flowchart LR
+  objective["Marketing objective"] --> insights["Insights Agent<br/>evidence grounded"]
+  insights --> proposal["Experimentation Agent<br/>governed proposal"]
+  proposal --> approval["Human approval"]
+  approval --> activation["Activation attempt"]
+  activation --> exposures["Exposures and outcomes"]
+  exposures --> analytics["Analytics Agent<br/>30 per arm evidence guard"]
+  analytics --> ship["SHIP"]
+  analytics --> stop["STOP"]
+  analytics --> iterate["ITERATE"]
+  insights -.-> refusal["First class refusal"]
+  proposal -.-> refusal
+  analytics -.-> refusal
+```
+
 ## 9. Provider-neutral MarTech activation
 
 **Why.** Aurora must hand its decisions to whatever the client already runs, and the
@@ -284,6 +367,16 @@ foreign keys make a cross-client reference fail *in the database*. Confidence is
 **derived** from evidence and populated attributes with unknown signals excluded and
 weights renormalized — an open conflict caps it at 0.5.
 
+```mermaid
+flowchart LR
+  extracted["EXTRACTED"] --> |"review"| pending["PENDING_REVIEW"]
+  pending --> |"named human approve"| approved["APPROVED<br/>trusted by default"]
+  approved --> |"new approved version"| superseded["SUPERSEDED"]
+  approved --> |"deprecate"| deprecated["DEPRECATED"]
+  pending --> |"deprecate"| deprecated
+  candidates["Non approved candidates"] -.-> |"explicit includeCandidates true"| pending
+```
+
 **Aurora Hotels use case.** `feature:resort-affinity` exists as an approved object with
 its calculator implementation, the data assets it reads, the standards that govern it,
 and the model that consumes it — so "what would we break?" is a bounded, cycle-safe
@@ -328,6 +421,36 @@ every model-assisted candidate references its producing invocation.
 
 **Aurora Hotels use case.** The interpretation of a resort-affinity calculator is
 traceable to one invocation row and one prompt hash — the question an audit asks first.
+
+```mermaid
+flowchart LR
+  subgraph ai["AI touchpoints"]
+    extraction["ExtractionService<br/>LlmGateway interpretation"]
+    embeddings["EmbeddingProvider<br/>discovery embeddings and recall"]
+    explanation["DiscoveryService<br/>LlmGateway explanation prose"]
+    drafting["InitiativeService<br/>LlmGateway targeting and feature drafts"]
+  end
+
+  boundary["The model drafts and recalls<br/>the gates decide"]
+
+  subgraph deterministic["Deterministic zone"]
+    scorecard["Reuse scorecard<br/>six structural dimensions<br/>threshold 0.80"]
+    feasibility["Feasibility verdicts<br/>PASS FAIL UNKNOWN"]
+    validators["SQL schema leakage<br/>and point in time validators"]
+    sample["Sample size mathematics"]
+    lifecycle["Lifecycle and human gates"]
+  end
+
+  extraction --> boundary
+  embeddings --> boundary
+  explanation --> boundary
+  drafting --> boundary
+  boundary --> scorecard
+  boundary --> feasibility
+  boundary --> validators
+  boundary --> sample
+  boundary --> lifecycle
+```
 
 ## 14. Grounded extraction: two passes, and citations enforced
 
@@ -382,6 +505,27 @@ still pass a gate.
 ```text
 REQUIREMENT_INTAKE → KNOWLEDGE_DISCOVERY → REUSE_DECISION → DATA_FEASIBILITY
 → TARGETING_DESIGN → FEATURE_DESIGN → CANDIDATE_BUILD → EXPERIMENT_DESIGN → HANDOFF
+```
+
+```mermaid
+flowchart LR
+  intake["REQUIREMENT_INTAKE"] --> discovery["KNOWLEDGE_DISCOVERY"]
+  discovery --> reuse["REUSE_DECISION<br/>human gate"]
+  reuse --> data["DATA_FEASIBILITY"]
+  data --> feasibility{"Feasibility"}
+  feasibility --> |"PASS"| targeting["TARGETING_DESIGN"]
+  feasibility --> |"UNKNOWN"| unknown["AWAITING_APPROVAL<br/>named human accepts"]
+  unknown --> targeting
+  feasibility --> |"FAIL"| blocked["BLOCKED"]
+  targeting --> targetcheck{"Targeting validators"}
+  targetcheck --> |"ACCEPTED"| feature["FEATURE_DESIGN<br/>human gate"]
+  targetcheck --> |"REJECTED"| targeting
+  feature --> candidate["CANDIDATE_BUILD<br/>OUT_OF_SCOPE"]
+  candidate --> experiment["EXPERIMENT_DESIGN<br/>human gate"]
+  experiment --> handoff["HANDOFF<br/>human gate"]
+  handoff --> handoffcheck{"Handoff preconditions"}
+  handoffcheck --> |"unapproved candidate"| refused["Refused"]
+  handoffcheck --> |"all preconditions pass"| complete["Completed"]
 ```
 
 with statuses `PENDING`, `IN_PROGRESS`, `AWAITING_APPROVAL`, `COMPLETED`, `BLOCKED`,
@@ -516,6 +660,43 @@ POST /api/models/{name}/candidates
 X-Aurora-Studio-Token: <shared write token>
 Idempotency-Key: <packageHash>
 → 201 { candidateId, status: "AWAITING_WEIGHTS" }
+```
+
+```mermaid
+sequenceDiagram
+  participant MS as Model Studio
+  participant H as Named human
+  participant A as Aurora
+  participant DB as Aurora database
+  participant MLOps as Client MLOps
+
+  MS->>MS: Build package and compute SHA 256
+  MS->>H: Request approval
+  H->>MS: APPROVE with actor and non empty reason
+  alt Model Studio token missing
+    MS-->>MS: AURORA_NOT_CONFIGURED
+  else Token configured
+    MS->>A: POST candidate with token and package hash
+    A->>A: Recompute package hash server side
+    alt Aurora token unconfigured
+      A-->>MS: 503
+    else Token missing or wrong
+      A-->>MS: 401
+    else Hash mismatch
+      A-->>MS: 400 refusal
+    else Valid package
+      A->>DB: Store model candidate
+      DB->>DB: Store append only audit
+      alt First package hash
+        A-->>MS: 201 AWAITING_WEIGHTS
+      else Same package hash replay
+        DB->>DB: Record REPLAYED
+        A-->>MS: 201 same candidate id
+      end
+    end
+  end
+  Note over MLOps,A: Client MLOps supplies trained weights and evaluation later
+  Note over MLOps,A: TESTED is downstream of that client owned process
 ```
 
 Aurora stores it in `model_candidates` with `unique (model_name, package_hash)`

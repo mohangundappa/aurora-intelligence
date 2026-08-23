@@ -16,7 +16,7 @@ class ModelCandidateServiceTest {
             () ->
                 service.register(
                     "booking-intent", null, null, new ObjectMapper().createObjectNode()))
-        .isInstanceOf(InvalidCandidateException.class)
+        .isInstanceOf(CandidateTokenNotConfiguredException.class)
         .hasMessage("Candidate registration token is not configured");
   }
 }

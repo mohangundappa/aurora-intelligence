@@ -94,6 +94,9 @@ Model Studio's approved design package enters Aurora at
 Aurora recomputes the package hash before persisting it in `model_candidates`,
 records the registration attempt in `model_candidate_audit`, and exposes
 received packages through unauthenticated `GET /api/models/{name}/candidates`.
+Missing or incorrect write tokens return `401` with the standard error shape;
+an unconfigured server token returns `503`. Malformed JSON returns `400`.
+These candidate-write responses do not expose the configured token.
 
 The showcase has no general client authentication. The shared token protects
 only this candidate write seam; it is not an authentication system for the

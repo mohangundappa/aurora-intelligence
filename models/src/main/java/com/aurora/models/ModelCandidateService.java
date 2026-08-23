@@ -1,6 +1,8 @@
 package com.aurora.models;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,10 +46,14 @@ public class ModelCandidateService {
   public CandidateRegistration register(
       String pathModelName, String idempotencyKey, String requestToken, JsonNode body) {
     if (studioToken == null || studioToken.isBlank()) {
-      throw new InvalidCandidateException("Candidate registration token is not configured");
+      throw new CandidateTokenNotConfiguredException(
+          "Candidate registration token is not configured");
     }
-    if (!studioToken.equals(requestToken)) {
-      throw new InvalidCandidateException("Invalid candidate registration token");
+    byte[] configuredToken = studioToken.getBytes(StandardCharsets.UTF_8);
+    byte[] suppliedToken =
+        requestToken == null ? new byte[0] : requestToken.getBytes(StandardCharsets.UTF_8);
+    if (!MessageDigest.isEqual(configuredToken, suppliedToken)) {
+      throw new InvalidCandidateTokenException("Invalid candidate registration token");
     }
     if (body == null || !body.isObject()) {
       throw new InvalidCandidateException("candidate body must be a JSON object");

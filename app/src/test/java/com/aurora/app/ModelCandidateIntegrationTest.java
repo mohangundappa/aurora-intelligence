@@ -213,7 +213,7 @@ class ModelCandidateIntegrationTest {
                 .header("Idempotency-Key", packageHash)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
     mvc.perform(
             post("/api/models/booking-intent/candidates")
@@ -221,7 +221,7 @@ class ModelCandidateIntegrationTest {
                 .header("X-Aurora-Studio-Token", "wrong-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
   }
 
@@ -233,7 +233,17 @@ class ModelCandidateIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{not json"))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("candidate body must be valid JSON"));
+        .andExpect(jsonPath("$.error").value("request body must be valid JSON"));
+  }
+
+  @Test
+  void malformedJsonOnPredictionUsesGenericErrorMessage() throws Exception {
+    mvc.perform(
+            post("/api/models/booking-intent/predict")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{not json"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("request body must be valid JSON"));
   }
 
   @Test

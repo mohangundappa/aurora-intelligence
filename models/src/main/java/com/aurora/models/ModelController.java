@@ -80,9 +80,21 @@ public class ModelController {
     return Map.of("error", exception.getMessage());
   }
 
+  @ExceptionHandler(CandidateTokenNotConfiguredException.class)
+  @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+  public Map<String, String> tokenNotConfigured(CandidateTokenNotConfiguredException exception) {
+    return Map.of("error", exception.getMessage());
+  }
+
+  @ExceptionHandler(InvalidCandidateTokenException.class)
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public Map<String, String> invalidToken(InvalidCandidateTokenException exception) {
+    return Map.of("error", exception.getMessage());
+  }
+
   @ExceptionHandler(HttpMessageNotReadableException.class)
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public Map<String, String> malformed(HttpMessageNotReadableException exception) {
-    return Map.of("error", "candidate body must be valid JSON");
+    return Map.of("error", "request body must be valid JSON");
   }
 }

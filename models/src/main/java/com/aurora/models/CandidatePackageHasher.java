@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 
 public final class CandidatePackageHasher {
@@ -28,7 +29,7 @@ public final class CandidatePackageHasher {
     }
     try {
       byte[] serialized = mapper.writeValueAsBytes(packageContent);
-      return bytesToHex(MessageDigest.getInstance("SHA-256").digest(serialized));
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(serialized));
     } catch (Exception exception) {
       throw new IllegalStateException("Unable to hash candidate package", exception);
     }
@@ -51,13 +52,5 @@ public final class CandidatePackageHasher {
       return ordered;
     }
     return value;
-  }
-
-  private static String bytesToHex(byte[] bytes) {
-    StringBuilder result = new StringBuilder(bytes.length * 2);
-    for (byte value : bytes) {
-      result.append(String.format("%02x", value));
-    }
-    return result.toString();
   }
 }

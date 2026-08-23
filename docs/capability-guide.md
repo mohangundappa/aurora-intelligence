@@ -499,10 +499,8 @@ then approves it live as a named human with a reason, and the handoff registers.
 
 # Part III — The seam: what Aurora actually receives
 
-**Status.** This is the one capability in the guide that is not yet on Aurora's `main`:
-the receiving endpoint and its `V22__model_candidates.sql` migration live on
-[PR #28](https://github.com/mohangundappa/aurora-intelligence/pull/28), which is green but
-unmerged. A live cross-repo handoff needs it merged and both stacks running.
+**Status.** Shipped on `main` (`V22__model_candidates.sql`). A live cross-repo handoff
+still needs both stacks running and the shared write token configured on each side.
 
 **Why it is designed this way.** The original plan was to register the candidate into
 Aurora's registry as `TESTED`. That is wrong and worth saying plainly: Aurora's registry

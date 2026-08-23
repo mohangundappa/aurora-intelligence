@@ -1,20 +1,48 @@
 package com.aurora.models;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ModelService {
   private final ModelRepository repository;
+  private final ModelCandidateService candidates;
 
   public ModelService(ModelRepository repository) {
+    this(repository, null);
+  }
+
+  @Autowired
+  public ModelService(ModelRepository repository, ModelCandidateService candidates) {
     this.repository = repository;
+    this.candidates = candidates;
   }
 
   public List<ModelVersion> versions(String name) {
     return repository.findAll(name);
+  }
+
+  public CandidateRegistration registerCandidate(String name, JsonNode body) {
+    return registerCandidate(name, null, body);
+  }
+
+  public CandidateRegistration registerCandidate(
+      String name, String idempotencyKey, JsonNode body) {
+    if (candidates == null) {
+      throw new IllegalStateException("Model candidate registration is unavailable");
+    }
+    return candidates.register(name, idempotencyKey, body);
+  }
+
+  public List<ModelCandidate> candidates(String name) {
+    if (candidates == null) {
+      throw new IllegalStateException("Model candidate registration is unavailable");
+    }
+    return candidates.candidates(name);
   }
 
   public void approve(String name, String version, String actor) {

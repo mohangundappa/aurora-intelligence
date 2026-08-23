@@ -5,8 +5,8 @@ capability is, **why** it exists, **how** it is built, and **an Aurora Hotels us
 for each. It is written to be read top to bottom by someone who has not seen the code,
 and to survive a technical reviewer reading the code afterwards.
 
-Aurora Hotels is fictional. No Hilton trademark, branding, proprietary data, or
-copyrighted material is used. Aurora works **beside** Adobe Experience Platform,
+Aurora Hotels is fictional. No real hotel brand's trademark, branding, proprietary data,
+or copyrighted material is used. Aurora works **beside** Adobe Experience Platform,
 Salesforce Data Cloud, Tealium, Segment or any other CDP; it never replaces the
 profile, consent, identity or audience system of record.
 

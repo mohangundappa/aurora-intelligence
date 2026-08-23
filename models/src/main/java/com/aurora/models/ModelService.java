@@ -21,8 +21,8 @@ public class ModelService {
   }
 
   public CandidateRegistration registerCandidate(
-      String name, String idempotencyKey, JsonNode body) {
-    return candidates.register(name, idempotencyKey, body);
+      String name, String idempotencyKey, String studioToken, JsonNode body) {
+    return candidates.register(name, idempotencyKey, studioToken, body);
   }
 
   public List<ModelCandidate> candidates(String name) {

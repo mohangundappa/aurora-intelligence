@@ -82,17 +82,22 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  studio["Model Studio<br/>approved design package"] -->|"POST /api/models/{name}/candidates<br/>Idempotency-Key: packageHash"| inbound["Aurora model candidate API"]
+  studio["Model Studio<br/>approved design package"] -->|"POST /api/models/{name}/candidates<br/>X-Aurora-Studio-Token + Idempotency-Key"| inbound["Aurora model candidate API"]
   inbound --> candidates[("model_candidates<br/>design package")]
   inbound --> candidateAudit[("model_candidate_audit<br/>append-only attempts")]
   candidates --> read["GET /api/models/{name}/candidates"]
 ```
 
 Model Studio's approved design package enters Aurora at
-`POST /api/models/{name}/candidates` with an `Idempotency-Key` equal to the
-package hash. Aurora persists it in `model_candidates`, records the registration
-attempt in `model_candidate_audit`, and exposes received packages through
-`GET /api/models/{name}/candidates`.
+`POST /api/models/{name}/candidates` requires the shared
+`X-Aurora-Studio-Token` and an `Idempotency-Key` equal to the package hash.
+Aurora recomputes the package hash before persisting it in `model_candidates`,
+records the registration attempt in `model_candidate_audit`, and exposes
+received packages through unauthenticated `GET /api/models/{name}/candidates`.
+
+The showcase has no general client authentication. The shared token protects
+only this candidate write seam; it is not an authentication system for the
+rest of Aurora.
 
 What arrives is a design package awaiting client-trained weights. It is not a
 model version, is never servable, and Aurora grants it no lifecycle status:

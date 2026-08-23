@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,8 +34,9 @@ public class ModelController {
   public CandidateRegistration registerCandidate(
       @PathVariable String name,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestHeader(value = "X-Aurora-Studio-Token", required = false) String studioToken,
       @RequestBody JsonNode body) {
-    return models.registerCandidate(name, idempotencyKey, body);
+    return models.registerCandidate(name, idempotencyKey, studioToken, body);
   }
 
   @GetMapping("/{name}/candidates")
@@ -76,5 +78,11 @@ public class ModelController {
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public Map<String, String> invalid(InvalidCandidateException exception) {
     return Map.of("error", exception.getMessage());
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public Map<String, String> malformed(HttpMessageNotReadableException exception) {
+    return Map.of("error", "candidate body must be valid JSON");
   }
 }

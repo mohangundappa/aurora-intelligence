@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aurora.models.CandidatePackageHasher;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,17 +46,19 @@ class ModelCandidateIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired JdbcTemplate jdbc;
+  @Autowired ObjectMapper mapper;
 
   @Test
   void registrationIsIdempotentAuditedAndDoesNotEnterModelLifecycle() throws Exception {
-    String packageHash = "hash-" + UUID.randomUUID();
     String initiativeId = UUID.randomUUID().toString();
-    String body = candidateBody(packageHash, initiativeId);
+    String body = candidateBody(initiativeId);
+    String packageHash = packageHash(body);
 
     String firstResponse =
         mvc.perform(
                 post("/api/models/booking-intent/candidates")
                     .header("Idempotency-Key", packageHash)
+                    .header("X-Aurora-Studio-Token", "studio-demo-token")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body))
             .andExpect(status().isCreated())
@@ -66,6 +71,7 @@ class ModelCandidateIntegrationTest {
     mvc.perform(
             post("/api/models/booking-intent/candidates")
                 .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isCreated())
@@ -118,14 +124,15 @@ class ModelCandidateIntegrationTest {
 
   @Test
   void malformedPackageIsRejectedWithNamedProblem() throws Exception {
-    String packageHash = "hash-" + UUID.randomUUID();
     String body =
-        candidateBody(packageHash, UUID.randomUUID().toString())
+        candidateBody(UUID.randomUUID().toString())
             .replace("\"clientId\": \"studio-client\"", "\"unexpected\": true");
+    String packageHash = packageHash(body);
 
     mvc.perform(
             post("/api/models/booking-intent/candidates")
                 .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest())
@@ -134,14 +141,15 @@ class ModelCandidateIntegrationTest {
 
   @Test
   void multipleUnknownFieldsAreReportedInSortedOrder() throws Exception {
-    String packageHash = "hash-" + UUID.randomUUID();
     String body =
-        candidateBody(packageHash, UUID.randomUUID().toString())
+        candidateBody(UUID.randomUUID().toString())
             .replace("\"clientId\": \"studio-client\"", "\"zeta\": true, \"alpha\": true");
+    String packageHash = packageHash(body);
 
     mvc.perform(
             post("/api/models/booking-intent/candidates")
                 .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest())
@@ -150,12 +158,15 @@ class ModelCandidateIntegrationTest {
 
   @Test
   void missingRequiredPackageFieldIsRejected() throws Exception {
+    String body =
+        candidateBody(UUID.randomUUID().toString())
+            .replaceFirst("\"packageHash\": \"[^\"]+\"", "\"packageHash\": \"\"");
     String packageHash = "";
-    String body = candidateBody(packageHash, UUID.randomUUID().toString());
 
     mvc.perform(
             post("/api/models/booking-intent/candidates")
                 .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
         .andExpect(status().isBadRequest())
@@ -169,13 +180,72 @@ class ModelCandidateIntegrationTest {
   }
 
   @Test
-  void candidateAuditIsAppendOnly() throws Exception {
-    String packageHash = "hash-" + UUID.randomUUID();
+  void suppliedHashMismatchIsRejectedBeforeIdempotentReplay() throws Exception {
+    String body = candidateBody(UUID.randomUUID().toString());
+    String realHash = packageHash(body);
+    String forgedBody =
+        body.replace("\"cohortSql\": \"select 1\"", "\"cohortSql\": \"select 999\"");
+
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("Idempotency-Key", realHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(forgedBody))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            jsonPath("$.error").value("packageHash does not match candidate package content"));
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from model_candidates where package_hash=?",
+                Integer.class,
+                realHash))
+        .isZero();
+  }
+
+  @Test
+  void missingOrWrongStudioTokenIsRejected() throws Exception {
+    String body = candidateBody(UUID.randomUUID().toString());
+    String packageHash = packageHash(body);
+
     mvc.perform(
             post("/api/models/booking-intent/candidates")
                 .header("Idempotency-Key", packageHash)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(candidateBody(packageHash, UUID.randomUUID().toString())))
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "wrong-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
+  }
+
+  @Test
+  void malformedJsonUsesCandidateErrorShape() throws Exception {
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{not json"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("candidate body must be valid JSON"));
+  }
+
+  @Test
+  void candidateAuditIsAppendOnly() throws Exception {
+    String body = candidateBody(UUID.randomUUID().toString());
+    String packageHash = packageHash(body);
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
         .andExpect(status().isCreated());
 
     Long auditId =
@@ -193,14 +263,15 @@ class ModelCandidateIntegrationTest {
         .hasMessageContaining("append-only");
   }
 
-  private String candidateBody(String packageHash, String initiativeId) {
-    return """
+  private String candidateBody(String initiativeId) throws Exception {
+    String body =
+        """
         {
           "studioInitiativeId": "%s",
           "requirementId": "studio-requirement",
-          "packageHash": "%s",
+          "packageHash": "",
           "modelName": "booking-intent",
-          "targeting": {"cohortSql": "select 1"},
+          "targeting": {"cohortSql": "select 1", "testId": "%s"},
           "features": [],
           "dataAssets": [],
           "experimentDesign": {},
@@ -211,6 +282,13 @@ class ModelCandidateIntegrationTest {
           "clientId": "studio-client"
         }
         """
-        .formatted(initiativeId, packageHash);
+            .formatted(initiativeId, initiativeId);
+    String hash = CandidatePackageHasher.hash(mapper.readTree(body), mapper);
+    return body.replace("\"packageHash\": \"\"", "\"packageHash\": \"" + hash + "\"");
+  }
+
+  private String packageHash(String body) throws Exception {
+    JsonNode json = mapper.readTree(body);
+    return json.get("packageHash").asText();
   }
 }

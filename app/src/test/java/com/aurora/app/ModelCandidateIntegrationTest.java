@@ -78,7 +78,9 @@ class ModelCandidateIntegrationTest {
         .andExpect(jsonPath("$.candidateId").value(candidateId))
         .andExpect(jsonPath("$.status").value("AWAITING_WEIGHTS"));
 
-    mvc.perform(get("/api/models/booking-intent/candidates"))
+    mvc.perform(
+            get("/api/models/booking-intent/candidates")
+                .header("X-Aurora-Studio-Token", "studio-demo-token"))
         .andExpect(status().isOk())
         .andExpect(
             jsonPath("$[?(@.candidateId == '" + candidateId + "')].status")
@@ -88,6 +90,9 @@ class ModelCandidateIntegrationTest {
                 .value(packageHash))
         .andExpect(
             jsonPath("$[?(@.candidateId == '" + candidateId + "')].packageContent.clientId")
+                .value("studio-client"))
+        .andExpect(
+            jsonPath("$[?(@.candidateId == '" + candidateId + "')].clientId")
                 .value("studio-client"))
         .andExpect(
             jsonPath("$[?(@.candidateId == '" + candidateId + "')].packageContent.requirementId")
@@ -226,6 +231,22 @@ class ModelCandidateIntegrationTest {
   }
 
   @Test
+  void candidateReadsRequireTheStudioToken() throws Exception {
+    mvc.perform(get("/api/models/booking-intent/candidates"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
+    mvc.perform(
+            get("/api/models/booking-intent/candidates")
+                .header("X-Aurora-Studio-Token", "wrong-token"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Invalid candidate registration token"));
+    mvc.perform(
+            get("/api/models/booking-intent/candidates")
+                .header("X-Aurora-Studio-Token", "studio-demo-token"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
   void malformedJsonUsesCandidateErrorShape() throws Exception {
     mvc.perform(
             post("/api/models/booking-intent/candidates")
@@ -271,6 +292,37 @@ class ModelCandidateIntegrationTest {
     assertThatThrownBy(
             () -> jdbc.update("delete from model_candidate_audit where audit_id=?", auditId))
         .hasMessageContaining("append-only");
+  }
+
+  @Test
+  void candidatePackageHashAndStatusAreDatabaseProtected() throws Exception {
+    String body = candidateBody(UUID.randomUUID().toString());
+    String packageHash = packageHash(body);
+    mvc.perform(
+            post("/api/models/booking-intent/candidates")
+                .header("Idempotency-Key", packageHash)
+                .header("X-Aurora-Studio-Token", "studio-demo-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated());
+
+    assertThatThrownBy(
+            () ->
+                jdbc.update(
+                    "update model_candidates set package='{}' where package_hash=?", packageHash))
+        .hasMessageContaining("package and provenance are immutable");
+    assertThatThrownBy(
+            () ->
+                jdbc.update(
+                    "update model_candidates set package_hash='changed' where package_hash=?",
+                    packageHash))
+        .hasMessageContaining("package and provenance are immutable");
+    assertThatThrownBy(
+            () ->
+                jdbc.update(
+                    "update model_candidates set status='TESTED' where package_hash=?",
+                    packageHash))
+        .hasMessageContaining("model_candidates_status_check");
   }
 
   private String candidateBody(String initiativeId) throws Exception {

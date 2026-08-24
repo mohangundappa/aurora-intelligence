@@ -26,14 +26,15 @@ public class ModelCandidateRepository {
       String modelName,
       String packageHash,
       String studioInitiativeId,
+      String clientId,
       Map<String, Object> packageContent) {
     List<UUID> inserted =
         jdbc
             .query(
                 """
                 insert into model_candidates(
-                  candidate_id,model_name,package_hash,studio_initiative_id,package,status)
-                values (?,?,?,?,?::jsonb,'AWAITING_WEIGHTS')
+                  candidate_id,model_name,package_hash,studio_initiative_id,studio_client_id,package,status)
+                values (?,?,?,?,?,?::jsonb,'AWAITING_WEIGHTS')
                 on conflict (model_name,package_hash) do nothing
                 returning candidate_id
                 """,
@@ -42,6 +43,7 @@ public class ModelCandidateRepository {
                 modelName,
                 packageHash,
                 studioInitiativeId,
+                clientId,
                 write(packageContent))
             .stream()
             .toList();
@@ -67,7 +69,7 @@ public class ModelCandidateRepository {
   public List<ModelCandidate> findAll(String modelName) {
     return jdbc.query(
         """
-        select candidate_id,model_name,package_hash,studio_initiative_id,status,package,created_at
+        select candidate_id,model_name,package_hash,studio_initiative_id,studio_client_id,status,package,created_at
         from model_candidates
         where model_name=?
         order by created_at
@@ -80,7 +82,7 @@ public class ModelCandidateRepository {
     return jdbc
         .query(
             """
-            select candidate_id,model_name,package_hash,studio_initiative_id,status,package,created_at
+            select candidate_id,model_name,package_hash,studio_initiative_id,studio_client_id,status,package,created_at
             from model_candidates
             where model_name=? and package_hash=?
             """,
@@ -95,7 +97,7 @@ public class ModelCandidateRepository {
     return jdbc
         .query(
             """
-            select candidate_id,model_name,package_hash,studio_initiative_id,status,package,created_at
+            select candidate_id,model_name,package_hash,studio_initiative_id,studio_client_id,status,package,created_at
             from model_candidates
             where candidate_id=?
             """,
@@ -112,6 +114,7 @@ public class ModelCandidateRepository {
           result.getString("model_name"),
           result.getString("package_hash"),
           result.getString("studio_initiative_id"),
+          result.getString("studio_client_id"),
           result.getString("status"),
           mapper.readValue(result.getString("package"), PACKAGE),
           result.getTimestamp("created_at").toInstant());

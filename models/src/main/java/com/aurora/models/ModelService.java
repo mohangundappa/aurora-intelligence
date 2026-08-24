@@ -25,8 +25,8 @@ public class ModelService {
     return candidates.register(name, idempotencyKey, studioToken, body);
   }
 
-  public List<ModelCandidate> candidates(String name) {
-    return candidates.candidates(name);
+  public List<ModelCandidate> candidates(String name, String studioToken) {
+    return candidates.candidates(name, studioToken);
   }
 
   public void approve(String name, String version, String actor) {

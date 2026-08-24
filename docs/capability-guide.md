@@ -703,11 +703,11 @@ Aurora stores it in `model_candidates` with `unique (model_name, package_hash)`
 for idempotent replay and an append-only `model_candidate_audit` recording `REGISTERED` /
 `REPLAYED`. A candidate is **not** a `model_versions` row: never servable, never in a
 lifecycle transition, and `approve` / `deploy` / `rollback` / `evaluation` on a candidate
-id all `404`. The invariant is pinned in the schema, not in prose —
-`check (status = 'AWAITING_WEIGHTS')` — so `update model_candidates set status='TESTED'`
-fails at the database. Aurora **recomputes** the package hash from the received body
-before insertion and rejects a mismatch, and the write seam requires the shared token
-(`401` wrong/missing, `503` unconfigured, never revealing the expected value).
+id all `404`. The candidate package, hash, and provenance are immutable after
+insertion, while the status remains mutable for the client MLOps process. Aurora
+**recomputes** the package hash from the received body before insertion and rejects
+a mismatch, and the candidate read and write seams require the shared token (`401`
+wrong/missing, `503` unconfigured, never revealing the expected value).
 
 **Aurora Hotels use case.** After the live approval: `201`, status `AWAITING_WEIGHTS`, a
 replay returning the *same* candidate id, `model_versions` unchanged

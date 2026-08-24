@@ -45,16 +45,7 @@ public class ModelCandidateService {
   @Transactional
   public CandidateRegistration register(
       String pathModelName, String idempotencyKey, String requestToken, JsonNode body) {
-    if (studioToken == null || studioToken.isBlank()) {
-      throw new CandidateTokenNotConfiguredException(
-          "Candidate registration token is not configured");
-    }
-    byte[] configuredToken = studioToken.getBytes(StandardCharsets.UTF_8);
-    byte[] suppliedToken =
-        requestToken == null ? new byte[0] : requestToken.getBytes(StandardCharsets.UTF_8);
-    if (!MessageDigest.isEqual(configuredToken, suppliedToken)) {
-      throw new InvalidCandidateTokenException("Invalid candidate registration token");
-    }
+    authenticate(requestToken);
     if (body == null || !body.isObject()) {
       throw new InvalidCandidateException("candidate body must be a JSON object");
     }
@@ -78,6 +69,7 @@ public class ModelCandidateService {
       throw new InvalidCandidateException("Idempotency-Key must match packageHash");
     }
     String studioInitiativeId = requiredText(body, "studioInitiativeId");
+    String clientId = requiredText(body, "clientId");
     if (!packageHash.equals(CandidatePackageHasher.hash(body, mapper))) {
       throw new InvalidCandidateException("packageHash does not match candidate package content");
     }
@@ -85,12 +77,31 @@ public class ModelCandidateService {
         mapper.convertValue(body, new com.fasterxml.jackson.core.type.TypeReference<>() {});
     ModelCandidateRepository.RegistrationResult result =
         repository.register(
-            UUID.randomUUID(), modelName, packageHash, studioInitiativeId, packageContent);
+            UUID.randomUUID(),
+            modelName,
+            packageHash,
+            studioInitiativeId,
+            clientId,
+            packageContent);
     return new CandidateRegistration(result.candidate().candidateId(), result.candidate().status());
   }
 
-  public List<ModelCandidate> candidates(String modelName) {
+  public List<ModelCandidate> candidates(String modelName, String requestToken) {
+    authenticate(requestToken);
     return repository.findAll(modelName);
+  }
+
+  private void authenticate(String requestToken) {
+    if (studioToken == null || studioToken.isBlank()) {
+      throw new CandidateTokenNotConfiguredException(
+          "Candidate registration token is not configured");
+    }
+    byte[] configuredToken = studioToken.getBytes(StandardCharsets.UTF_8);
+    byte[] suppliedToken =
+        requestToken == null ? new byte[0] : requestToken.getBytes(StandardCharsets.UTF_8);
+    if (!MessageDigest.isEqual(configuredToken, suppliedToken)) {
+      throw new InvalidCandidateTokenException("Invalid candidate registration token");
+    }
   }
 
   private String requiredText(JsonNode body, String field) {

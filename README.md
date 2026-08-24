@@ -177,6 +177,10 @@ docs/         architecture, catalogs, ownership, API, roadmap and ADRs
   `/actuator/health`, then choose a backend session from the directory.
 - **Stale demo rows:** use `--reset`; do not manually delete only one signal,
   because decisions and experiment joins may still reference its events.
+  Candidate rows are intentionally permanent during normal operation. For a
+  fully clean rehearsal, explicitly run `docker compose down -v`, start the
+  documented Compose stack again, and then run `./scripts/seed-demo.sh --reset`;
+  this full reset also clears candidate and candidate-audit rows.
 - **Frontend build fails after dependency changes:** run `npm ci` in
   `frontend`; the committed lockfile is authoritative.
 - **Playwright cannot launch:** run `npx playwright install chromium`.

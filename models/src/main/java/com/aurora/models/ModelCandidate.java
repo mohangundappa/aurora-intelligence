@@ -9,6 +9,7 @@ public record ModelCandidate(
     String modelName,
     String packageHash,
     String studioInitiativeId,
+    String clientId,
     String status,
     Map<String, Object> packageContent,
     Instant createdAt) {}

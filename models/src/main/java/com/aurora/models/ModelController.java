@@ -40,8 +40,10 @@ public class ModelController {
   }
 
   @GetMapping("/{name}/candidates")
-  public List<ModelCandidate> candidates(@PathVariable String name) {
-    return models.candidates(name);
+  public List<ModelCandidate> candidates(
+      @PathVariable String name,
+      @RequestHeader(value = "X-Aurora-Studio-Token", required = false) String studioToken) {
+    return models.candidates(name, studioToken);
   }
 
   @GetMapping("/{name}/audit")

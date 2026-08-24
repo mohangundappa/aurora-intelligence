@@ -295,7 +295,7 @@ class ModelCandidateIntegrationTest {
   }
 
   @Test
-  void candidatePackageAndHashAreImmutableButStatusRemainsMutable() throws Exception {
+  void candidatePackageHashAndStatusAreDatabaseProtected() throws Exception {
     String body = candidateBody(UUID.randomUUID().toString());
     String packageHash = packageHash(body);
     mvc.perform(
@@ -317,11 +317,12 @@ class ModelCandidateIntegrationTest {
                     "update model_candidates set package_hash='changed' where package_hash=?",
                     packageHash))
         .hasMessageContaining("package and provenance are immutable");
-    assertThat(
-            jdbc.update(
-                "update model_candidates set status='CLIENT_TRAINED' where package_hash=?",
-                packageHash))
-        .isEqualTo(1);
+    assertThatThrownBy(
+            () ->
+                jdbc.update(
+                    "update model_candidates set status='TESTED' where package_hash=?",
+                    packageHash))
+        .hasMessageContaining("model_candidates_status_check");
   }
 
   private String candidateBody(String initiativeId) throws Exception {

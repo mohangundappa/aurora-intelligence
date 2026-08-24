@@ -5,9 +5,6 @@ update model_candidates
 set studio_client_id = package->>'clientId'
 where package ? 'clientId';
 
-alter table model_candidates
-  drop constraint model_candidates_status_check;
-
 create or replace function prevent_model_candidate_package_mutation()
 returns trigger
 language plpgsql

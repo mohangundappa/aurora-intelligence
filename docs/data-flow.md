@@ -111,9 +111,11 @@ The ordinary seed reset does not remove candidate rows or their audit history.
 
 What arrives is a design package awaiting client-trained weights. It is not a
 model version, is never servable, and Aurora grants it no lifecycle status:
-`TESTED` is not claimed. Only a later, human-controlled process that supplies
-client-trained weights and evaluation could create a model version; that process
-is outside this seam.
+`TESTED` is not claimed. The candidate status is pinned by the schema to
+`AWAITING_WEIGHTS`; a future client-owned status transition would require its
+own governed migration rather than an unconstrained column. Only a later,
+human-controlled process that supplies client-trained weights and evaluation
+could create a model version; that process is outside this seam.
 
 Two properties worth reading off the diagram:
 
